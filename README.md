@@ -2,6 +2,9 @@
 
 一个按预算、日期或目的地寻找低价往返机票的轻量网页。前端是纯 HTML/CSS/JS，部署到 GitHub Pages；Cloudflare Worker 聚合机票接口并保护密钥，D1 保存共享价格历史。
 
+- 在线体验：https://gitanamomo.github.io/lowfare-compass/
+- GitHub 仓库：https://github.com/gitanamomo/lowfare-compass
+
 > 价格仅用于旅行规划。程序不出票、不收款，购买前必须到供应商页面确认最终价格、税费和行李规则。
 
 ## 功能
@@ -136,3 +139,4 @@ npm run validate
 - 建立 Worker API、Travelpayouts/Amadeus 适配、演示降级和复价流程。
 - 建立 D1 历史价格 schema、统一结果模型、去重排序和安全检查。
 - 补充本地运行、数据源配置、测试和部署说明。
+- 创建 GitHub 仓库并启用 GitHub Pages。
