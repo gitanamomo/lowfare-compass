@@ -1,0 +1,17 @@
+{
+  "name": "lowfare-compass",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "validate": "node scripts/validate.mjs",
+    "dev:frontend": "python3 -m http.server 5500 --bind 127.0.0.1",
+    "dev:worker": "npx wrangler dev",
+    "deploy:worker": "npx wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
+

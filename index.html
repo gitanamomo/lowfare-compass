@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3eddf">
+  <meta name="description" content="按预算、日期或目的地寻找低价往返机票，明确区分参考价、实时价和本站历史低价。">
+  <title>低价罗盘｜往返机票计划</title>
+  <style>
+    :root {
+      --paper: #f3eddf; --paper-deep: #e7dcc6; --ink: #102f35; --ink-soft: #466065;
+      --accent: #e95f36; --accent-dark: #b93b1f; --teal: #17766f; --line: rgba(16,47,53,.2);
+      --white: #fffdf7; --warning: #8b5b14; --radius: 18px; --shadow: 0 20px 50px rgba(31,49,49,.12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; color: var(--ink); background:
+        radial-gradient(circle at 12% 8%, rgba(233,95,54,.12), transparent 28rem),
+        repeating-linear-gradient(90deg, transparent 0 31px, rgba(16,47,53,.022) 32px), var(--paper);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      min-height: 100vh;
+    }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .24; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E"); z-index: 10; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1160px, calc(100% - 32px)); margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 28px 0 18px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark { width: 46px; height: 46px; border: 2px solid var(--ink); border-radius: 50%; display: grid; place-items: center; position: relative; background: var(--white); box-shadow: 4px 4px 0 var(--accent); }
+    .brand-mark::before { content: ""; width: 4px; height: 18px; border-radius: 4px; background: var(--accent); transform: rotate(35deg) translateY(-3px); transform-origin: bottom; }
+    .brand-mark::after { content: ""; position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+    .brand-name { font: 700 23px/1 "Songti SC", "STSong", serif; letter-spacing: .08em; }
+    .brand-sub { margin-top: 5px; color: var(--ink-soft); font-size: 12px; letter-spacing: .14em; }
+    .icon-button { border: 1px solid var(--line); border-radius: 999px; background: rgba(255,253,247,.7); color: var(--ink); padding: 9px 14px; transition: .2s ease; }
+    .icon-button:hover { transform: translateY(-2px); border-color: var(--ink); }
+    .hero { display: grid; grid-template-columns: 1.5fr .7fr; gap: 40px; padding: 62px 0 44px; align-items: end; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 9px; color: var(--accent-dark); font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 38px; height: 2px; background: currentColor; }
+    h1 { margin: 16px 0 16px; max-width: 780px; font: 700 clamp(41px, 6.4vw, 78px)/.98 "Songti SC", "STSong", serif; letter-spacing: -.055em; }
+    h1 em { color: var(--accent); font-style: normal; position: relative; white-space: nowrap; }
+    .hero p { margin: 0; max-width: 670px; color: var(--ink-soft); font-size: clamp(15px, 2vw, 18px); line-height: 1.8; }
+    .hero-note { border-left: 2px solid var(--accent); padding: 8px 0 8px 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+    .mode-nav { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--ink); background: var(--ink); gap: 1px; border-radius: 14px 14px 0 0; overflow: hidden; }
+    .mode-tab { min-height: 98px; border: 0; background: var(--white); color: var(--ink); padding: 18px 20px; text-align: left; display: grid; grid-template-columns: auto 1fr; gap: 12px; transition: .22s ease; }
+    .mode-tab:hover { background: #fbf5e8; }
+    .mode-tab[aria-selected="true"] { background: var(--ink); color: var(--white); }
+    .tab-number { font: 700 12px/1.2 "Baskerville", serif; color: var(--accent); padding-top: 2px; }
+    .tab-title { display: block; font-weight: 700; margin-bottom: 7px; }
+    .tab-desc { display: block; color: var(--ink-soft); font-size: 12px; line-height: 1.4; }
+    .mode-tab[aria-selected="true"] .tab-desc { color: #bcd0cf; }
+    .search-panel { position: relative; background: rgba(255,253,247,.86); border: 1px solid var(--ink); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); padding: 30px; box-shadow: var(--shadow); backdrop-filter: blur(18px); }
+    .search-form { display: none; }
+    .search-form.active { display: block; animation: lift .32s ease both; }
+    @keyframes lift { from { opacity: 0; transform: translateY(9px); } }
+    .form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: end; }
+    .field { grid-column: span 3; }
+    .field.wide { grid-column: span 6; }
+    .field.small { grid-column: span 2; }
+    label { display: block; margin-bottom: 8px; color: var(--ink-soft); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+    input, select { width: 100%; border: 0; border-bottom: 1.5px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); padding: 11px 2px; outline: none; }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 3px 0 -1px rgba(233,95,54,.22); }
+    .origin-row { display: flex; gap: 8px; }
+    .origin-row input { min-width: 0; }
+    .add-origin { flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 50%; background: var(--white); color: var(--ink); }
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; min-height: 26px; margin-top: 9px; }
+    .chip { border: 1px solid var(--line); border-radius: 999px; background: var(--paper); padding: 5px 9px; color: var(--ink); font-size: 12px; }
+    .chip::after { content: " ×"; color: var(--accent); }
+    .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px dashed var(--line); margin-top: 24px; padding-top: 22px; }
+    .hint { color: var(--ink-soft); font-size: 12px; line-height: 1.55; max-width: 600px; }
+    .primary-button { border: 0; border-radius: 999px; color: white; background: var(--accent); padding: 13px 24px; font-weight: 700; box-shadow: 0 8px 0 var(--accent-dark); transition: .16s ease; white-space: nowrap; }
+    .primary-button:hover { transform: translateY(-2px); box-shadow: 0 10px 0 var(--accent-dark); }
+    .primary-button:active { transform: translateY(5px); box-shadow: 0 3px 0 var(--accent-dark); }
+    .primary-button:disabled { opacity: .55; cursor: wait; }
+    .status-strip { display: none; margin-top: 18px; padding: 12px 15px; border: 1px solid rgba(139,91,20,.3); background: rgba(255,226,161,.22); color: var(--warning); border-radius: 10px; font-size: 13px; line-height: 1.55; }
+    .status-strip.show { display: block; }
+    .results { padding: 66px 0 90px; }
+    .results[hidden] { display: none; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 22px; }
+    .section-head h2 { margin: 0; font: 700 clamp(28px, 4vw, 44px)/1.1 "Songti SC", "STSong", serif; }
+    .section-head p { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; }
+    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 11px; background: rgba(255,253,247,.7); }
+    .badge.live { color: var(--teal); border-color: rgba(23,118,111,.35); }
+    .badge.demo { color: var(--warning); border-color: rgba(139,91,20,.35); }
+    .result-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; align-items: start; }
+    .result-list { display: grid; gap: 14px; }
+    .ticket { background: var(--white); border: 1px solid var(--line); border-radius: 15px; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; box-shadow: 0 7px 20px rgba(16,47,53,.07); animation: ticketIn .4s ease both; animation-delay: calc(var(--i) * 45ms); }
+    @keyframes ticketIn { from { opacity: 0; transform: translateY(14px); } }
+    .ticket-main { padding: 20px 22px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
+    .place-code { font: 700 28px/1 "Baskerville", serif; letter-spacing: .04em; }
+    .place-name { color: var(--ink-soft); font-size: 12px; margin-top: 5px; }
+    .route { min-width: 120px; text-align: center; color: var(--ink-soft); font-size: 11px; }
+    .route-line { height: 1px; margin: 7px 0; background: var(--line); position: relative; }
+    .route-line::after { content: "›"; position: absolute; right: -1px; top: -11px; color: var(--accent); font-size: 19px; }
+    .dates { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: 12px; display: flex; flex-wrap: wrap; gap: 10px 18px; color: var(--ink-soft); font-size: 12px; }
+    .ticket-price { min-width: 190px; border-left: 1px dashed var(--line); padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; text-align: right; }
+    .price-label { color: var(--ink-soft); font-size: 11px; }
+    .price { margin: 2px 0; color: var(--accent); font: 700 34px/1.1 "Baskerville", serif; }
+    .price small { color: var(--ink); font: 600 13px/1 "Avenir Next", sans-serif; }
+    .history { min-height: 17px; color: var(--teal); font-size: 11px; }
+    .refresh-button { margin-top: 10px; border: 1px solid var(--ink); border-radius: 999px; background: transparent; color: var(--ink); padding: 8px 13px; font-size: 12px; font-weight: 700; }
+    .refresh-button:hover { background: var(--ink); color: var(--white); }
+    .calendar { position: sticky; top: 16px; background: var(--ink); color: var(--white); border-radius: 15px; padding: 20px; box-shadow: var(--shadow); }
+    .calendar h3 { margin: 0 0 5px; font: 700 22px/1.2 "Songti SC", serif; }
+    .calendar > p { margin: 0 0 17px; color: #bcd0cf; font-size: 11px; line-height: 1.5; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .calendar-cell { padding: 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; }
+    .calendar-cell.best { border-color: var(--accent); background: rgba(233,95,54,.13); }
+    .calendar-date { color: #bcd0cf; font-size: 10px; }
+    .calendar-price { margin-top: 4px; font: 700 18px/1 "Baskerville", serif; }
+    .empty { background: rgba(255,253,247,.65); border: 1px dashed var(--line); border-radius: 15px; padding: 44px 24px; text-align: center; color: var(--ink-soft); }
+    footer { border-top: 1px solid var(--line); padding: 25px 0 45px; display: flex; justify-content: space-between; gap: 24px; color: var(--ink-soft); font-size: 11px; line-height: 1.65; }
+    dialog { width: min(540px, calc(100% - 28px)); border: 1px solid var(--ink); border-radius: 18px; padding: 0; background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
+    dialog::backdrop { background: rgba(16,47,53,.5); backdrop-filter: blur(4px); }
+    .dialog-body { padding: 28px; }
+    .dialog-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 22px; }
+    .dialog-head h2 { margin: 0; font: 700 28px/1.1 "Songti SC", serif; }
+    .close-button { border: 0; background: transparent; color: var(--ink); font-size: 24px; }
+    .dialog-note { color: var(--ink-soft); font-size: 12px; line-height: 1.6; margin: 10px 0 22px; }
+    .dialog-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
+    .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 25px); z-index: 30; background: var(--ink); color: var(--white); border-radius: 999px; padding: 11px 16px; font-size: 12px; opacity: 0; pointer-events: none; transition: .25s ease; box-shadow: var(--shadow); }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; gap: 22px; padding-top: 44px; }
+      .hero-note { max-width: 620px; }
+      .mode-tab { min-height: 88px; padding: 14px; grid-template-columns: 1fr; gap: 5px; }
+      .tab-number { display: none; }
+      .field, .field.wide { grid-column: span 6; }
+      .field.small { grid-column: span 3; }
+      .result-layout { grid-template-columns: 1fr; }
+      .calendar { position: static; order: -1; }
+    }
+    @media (max-width: 580px) {
+      .shell { width: min(100% - 20px, 1160px); }
+      header { padding-top: 18px; }
+      .brand-sub { display: none; }
+      .hero { padding: 36px 4px 30px; }
+      h1 { font-size: 43px; }
+      .mode-nav { border-radius: 12px 12px 0 0; }
+      .mode-tab { min-height: 74px; padding: 11px 9px; text-align: center; }
+      .tab-title { font-size: 12px; margin: 0; }
+      .tab-desc { display: none; }
+      .search-panel { padding: 22px 17px; }
+      .form-grid { gap: 19px 13px; }
+      .field, .field.wide { grid-column: span 12; }
+      .field.small { grid-column: span 6; }
+      .form-actions { align-items: stretch; flex-direction: column; }
+      .primary-button { width: 100%; }
+      .results { padding-top: 46px; }
+      .section-head { align-items: start; flex-direction: column; }
+      .legend { justify-content: flex-start; }
+      .ticket { grid-template-columns: 1fr; }
+      .ticket-main { padding: 18px; }
+      .ticket-price { min-width: 0; border-left: 0; border-top: 1px dashed var(--line); padding: 15px 18px; display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; }
+      .price { font-size: 30px; }
+      .history { grid-column: 1; }
+      .refresh-button { grid-column: 2; grid-row: 1 / span 3; margin: 0 0 0 12px; }
+      footer { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand" aria-label="低价罗盘">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span><span class="brand-name">低价罗盘</span><span class="brand-sub">LOW FARE COMPASS</span></span>
+      </div>
+      <button class="icon-button" id="settingsButton" type="button">⚙ 接口设置</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <span class="eyebrow">从预算出发，而不是从目的地出发</span>
+          <h1>让价格决定，<br>下一次<em>飞哪里</em>。</h1>
+          <p>固定日期找便宜目的地，时间自由找近期低价，目标明确就找最省钱的往返组合。</p>
+        </div>
+        <div class="hero-note">所有价格均标注数据来源和更新时间。参考价不是付款价；选中行程后会先尝试实时复价。</div>
+      </section>
+
+      <section aria-label="低价机票搜索">
+        <div class="mode-nav" role="tablist" aria-label="选择搜索方式">
+          <button class="mode-tab" role="tab" aria-selected="true" aria-controls="form-fixed" id="tab-fixed" data-mode="fixed">
+            <span class="tab-number">01</span><span><span class="tab-title">日期已定</span><span class="tab-desc">预算内可以飞去哪里</span></span>
+          </button>
+          <button class="mode-tab" role="tab" aria-selected="false" aria-controls="form-flexible" id="tab-flexible" data-mode="flexible">
+            <span class="tab-number">02</span><span><span class="tab-title">时间自由</span><span class="tab-desc">全时段寻找近期低价</span></span>
+          </button>
+          <button class="mode-tab" role="tab" aria-selected="false" aria-controls="form-destination" id="tab-destination" data-mode="destination">
+            <span class="tab-number">03</span><span><span class="tab-title">目的地明确</span><span class="tab-desc">找最低价往返日期</span></span>
+          </button>
+        </div>
+
+        <div class="search-panel">
+          <form class="search-form active" id="form-fixed" data-mode="fixed" aria-labelledby="tab-fixed">
+            <div class="form-grid">
+              <div class="field wide origin-field"><label>出发城市（最多 3 个）</label><div class="origin-row"><input list="airportOptions" name="originInput" placeholder="如：长沙 CSX" autocomplete="off"><button class="add-origin" type="button" aria-label="添加出发城市">＋</button></div><div class="chips" aria-live="polite"></div></div>
+              <div class="field"><label for="fixedDepart">出发日期</label><input id="fixedDepart" name="departDate" type="date" required></div>
+              <div class="field"><label for="fixedReturn">返程日期</label><input id="fixedReturn" name="returnDate" type="date" required></div>
+              <div class="field"><label for="fixedBudget">往返预算 / 人</label><input id="fixedBudget" name="budget" type="number" min="100" max="100000" step="100" value="2000" required></div>
+              <div class="field"><label for="fixedStops">中转限制</label><select id="fixedStops" name="maxStops"><option value="1">最多 1 次中转</option><option value="0">只看直飞</option></select></div>
+            </div>
+            <div class="form-actions"><span class="hint">按固定往返日期筛选预算内目的地，价格从低到高排列。</span><button class="primary-button" type="submit">搜索低价目的地 →</button></div>
+          </form>
+
+          <form class="search-form" id="form-flexible" data-mode="flexible" aria-labelledby="tab-flexible">
+            <div class="form-grid">
+              <div class="field wide origin-field"><label>出发城市（最多 3 个）</label><div class="origin-row"><input list="airportOptions" name="originInput" placeholder="如：上海 SHA" autocomplete="off"><button class="add-origin" type="button" aria-label="添加出发城市">＋</button></div><div class="chips" aria-live="polite"></div></div>
+              <div class="field"><label for="flexEarliest">最早出发</label><input id="flexEarliest" name="earliest" type="date" required></div>
+              <div class="field"><label for="flexLatest">最晚返回</label><input id="flexLatest" name="latest" type="date" required></div>
+              <div class="field small"><label for="flexMin">最短停留</label><input id="flexMin" name="stayMin" type="number" min="2" max="30" value="3" required></div>
+              <div class="field small"><label for="flexMax">最长停留</label><input id="flexMax" name="stayMax" type="number" min="2" max="30" value="10" required></div>
+              <div class="field"><label for="flexBudget">往返预算 / 人</label><input id="flexBudget" name="budget" type="number" min="100" max="100000" step="100" value="2500" required></div>
+              <div class="field"><label for="flexStops">中转限制</label><select id="flexStops" name="maxStops"><option value="1">最多 1 次中转</option><option value="0">只看直飞</option></select></div>
+            </div>
+            <div class="form-actions"><span class="hint">在最长 12 个月的窗口中，以停留天数控制搜索组合。</span><button class="primary-button" type="submit">寻找低价窗口 →</button></div>
+          </form>
+
+          <form class="search-form" id="form-destination" data-mode="destination" aria-labelledby="tab-destination">
+            <div class="form-grid">
+              <div class="field wide origin-field"><label>出发城市（最多 3 个）</label><div class="origin-row"><input list="airportOptions" name="originInput" placeholder="如：广州 CAN" autocomplete="off"><button class="add-origin" type="button" aria-label="添加出发城市">＋</button></div><div class="chips" aria-live="polite"></div></div>
+              <div class="field wide"><label for="destinationInput">明确目的地</label><input id="destinationInput" name="destination" list="airportOptions" placeholder="如：东京 TYO" required></div>
+              <div class="field"><label for="destEarliest">最早出发</label><input id="destEarliest" name="earliest" type="date" required></div>
+              <div class="field"><label for="destLatest">最晚返回</label><input id="destLatest" name="latest" type="date" required></div>
+              <div class="field small"><label for="destMin">最短停留</label><input id="destMin" name="stayMin" type="number" min="2" max="30" value="4" required></div>
+              <div class="field small"><label for="destMax">最长停留</label><input id="destMax" name="stayMax" type="number" min="2" max="30" value="9" required></div>
+              <div class="field"><label for="destBudget">最高预算 / 人</label><input id="destBudget" name="budget" type="number" min="100" max="100000" step="100" value="5000" required></div>
+              <div class="field"><label for="destStops">中转限制</label><select id="destStops" name="maxStops"><option value="1">最多 1 次中转</option><option value="0">只看直飞</option></select></div>
+            </div>
+            <div class="form-actions"><span class="hint">对比不同出发日和返程日组合，右侧生成最低价日期板。</span><button class="primary-button" type="submit">整理最低价日期 →</button></div>
+          </form>
+          <div class="status-strip" id="statusStrip" role="status"></div>
+        </div>
+      </section>
+
+      <section class="results" id="results" hidden aria-live="polite">
+        <div class="section-head">
+          <div><h2 id="resultTitle">低价结果</h2><p id="resultSummary"></p></div>
+          <div class="legend"><span class="badge">参考价</span><span class="badge live">实时复价</span><span class="badge demo">演示数据</span></div>
+        </div>
+        <div class="result-layout">
+          <div class="result-list" id="resultList"></div>
+          <aside class="calendar" id="calendar" hidden><h3>最低价日期板</h3><p>每格显示一个出发日的最低往返价格。</p><div class="calendar-grid" id="calendarGrid"></div></aside>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>价格仅供规划参考，以供应商最终页面为准。本站不出票、不收款。</span>
+      <span>覆盖范围取决于已配置的数据源；不抓取第三方售票网页。</span>
+    </footer>
+  </div>
+
+  <datalist id="airportOptions">
+    <option value="北京 BJS"><option value="上海 SHA"><option value="广州 CAN"><option value="深圳 SZX"><option value="长沙 CSX"><option value="成都 CTU"><option value="重庆 CKG"><option value="杭州 HGH"><option value="南京 NKG"><option value="武汉 WUH"><option value="西安 XIY"><option value="厦门 XMN"><option value="昆明 KMG"><option value="青岛 TAO"><option value="海口 HAK"><option value="三亚 SYX"><option value="香港 HKG"><option value="东京 TYO"><option value="大阪 OSA"><option value="首尔 SEL"><option value="曼谷 BKK"><option value="新加坡 SIN"><option value="巴黎 PAR"><option value="伦敦 LON"><option value="悉尼 SYD">
+  </datalist>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="dialog-body" id="settingsForm">
+      <div class="dialog-head"><div><span class="eyebrow">Connection</span><h2>接口设置</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div>
+      <label for="apiBase">Cloudflare Worker 地址</label>
+      <input id="apiBase" name="apiBase" type="url" placeholder="https://lowfare-compass-api.yourname.workers.dev">
+      <p class="dialog-note">留空时使用明确标记的本地演示数据。API 密钥只配置到 Worker Secrets，绝不能粘贴在这里。</p>
+      <div class="dialog-actions"><button class="primary-button" value="save">保存设置</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const AIRPORT_NAMES = { BJS:"北京",SHA:"上海",CAN:"广州",SZX:"深圳",CSX:"长沙",CTU:"成都",CKG:"重庆",HGH:"杭州",NKG:"南京",WUH:"武汉",XIY:"西安",XMN:"厦门",KMG:"昆明",TAO:"青岛",HAK:"海口",SYX:"三亚",HKG:"香港",MFM:"澳门",TPE:"台北",TYO:"东京",OSA:"大阪",SEL:"首尔",BKK:"曼谷",SIN:"新加坡",KUL:"吉隆坡",PAR:"巴黎",LON:"伦敦",SYD:"悉尼",NYC:"纽约",LAX:"洛杉矶" };
+    const DEMO_DESTINATIONS = [["TAO",680],["XMN",760],["CKG",820],["XIY",850],["KMG",980],["HAK",1080],["HKG",1280],["OSA",1680],["BKK",1780],["SEL",1880],["SIN",2380],["PAR",4280]];
+    const state = { mode: "fixed", origins: JSON.parse(localStorage.getItem("lowfare.origins") || '["CSX"]'), offers: [], demo: false };
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const apiBase = () => (localStorage.getItem("lowfare.apiBase") || "").replace(/\/$/, "");
+
+    setDefaultDates();
+    setupTabs();
+    setupOrigins();
+    setupForms();
+    setupSettings();
+
+    function setupTabs() {
+      $$(".mode-tab").forEach((tab) => tab.addEventListener("click", () => {
+        state.mode = tab.dataset.mode;
+        $$(".mode-tab").forEach((item) => item.setAttribute("aria-selected", String(item === tab)));
+        $$(".search-form").forEach((form) => form.classList.toggle("active", form.dataset.mode === state.mode));
+        renderOriginChips();
+      }));
+    }
+
+    function setupOrigins() {
+      $$(".origin-field").forEach((field) => {
+        const input = $("input", field);
+        const add = () => {
+          const code = codeFrom(input.value);
+          if (!code) return toast("请输入包含三字机场代码的城市，如：长沙 CSX");
+          if (!state.origins.includes(code) && state.origins.length >= 3) return toast("最多选择 3 个出发城市");
+          if (!state.origins.includes(code)) state.origins.push(code);
+          input.value = ""; persistOrigins(); renderOriginChips();
+        };
+        $(".add-origin", field).addEventListener("click", add);
+        input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); add(); } });
+      });
+      renderOriginChips();
+    }
+
+    function renderOriginChips() {
+      $$(".chips").forEach((box) => {
+        box.innerHTML = "";
+        state.origins.forEach((code) => {
+          const button = document.createElement("button"); button.type = "button"; button.className = "chip";
+          button.textContent = `${AIRPORT_NAMES[code] || code} ${code}`;
+          button.setAttribute("aria-label", `移除 ${code}`);
+          button.addEventListener("click", () => { if (state.origins.length === 1) return toast("至少保留一个出发城市"); state.origins = state.origins.filter((item) => item !== code); persistOrigins(); renderOriginChips(); });
+          box.append(button);
+        });
+      });
+    }
+
+    function setupForms() {
+      $$(".search-form").forEach((form) => form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = $("button[type=submit]", form); const original = button.textContent;
+        button.disabled = true; button.innerHTML = '<span class="spinner"></span>搜索中';
+        hideStatus();
+        try {
+          const body = formPayload(form);
+          validateClient(body, form.dataset.mode);
+          const result = await search(body, form.dataset.mode);
+          state.offers = result.data || []; state.demo = Boolean(result.meta?.demo);
+          renderResults(state.offers, result.meta || {}, form.dataset.mode);
+          persistPreferences(form);
+        } catch (error) { showStatus(error.message || "搜索失败，请稍后重试"); }
+        finally { button.disabled = false; button.textContent = original; }
+      }));
+    }
+
+    function formPayload(form) {
+      const data = Object.fromEntries(new FormData(form));
+      const payload = { ...data, origins: state.origins, budget: Number(data.budget), maxStops: Number(data.maxStops) };
+      if (data.stayMin) payload.stayMin = Number(data.stayMin);
+      if (data.stayMax) payload.stayMax = Number(data.stayMax);
+      if (data.destination) payload.destination = codeFrom(data.destination);
+      delete payload.originInput;
+      return payload;
+    }
+
+    function validateClient(body, mode) {
+      if (!body.origins.length) throw new Error("请至少选择一个出发城市");
+      if (mode === "fixed" && body.returnDate <= body.departDate) throw new Error("返程日期必须晚于出发日期");
+      if (mode !== "fixed") {
+        if (body.latest <= body.earliest) throw new Error("最晚返回日必须晚于最早出发日");
+        if (daysBetween(body.earliest, body.latest) > 366) throw new Error("搜索时间窗口不能超过 12 个月");
+        if (body.stayMin > body.stayMax) throw new Error("最短停留不能大于最长停留");
+      }
+      if (mode === "destination" && !body.destination) throw new Error("请输入带三字代码的目的地");
+    }
+
+    async function search(body, mode) {
+      if (!apiBase()) return { data: makeDemoOffers(body, mode), meta: { demo: true, searchedAt: new Date().toISOString(), warnings: ["尚未连接 Cloudflare Worker，当前显示演示数据，不能用于购票。"] } };
+      const paths = { fixed:"fixed-dates", flexible:"flexible", destination:"destination" };
+      const response = await fetch(`${apiBase()}/api/search/${paths[mode]}`, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify(body) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || `接口错误 ${response.status}`);
+      return payload;
+    }
+
+    function makeDemoOffers(input, mode) {
+      const candidates = mode === "destination" ? [[input.destination,760],[input.destination,880],[input.destination,960],[input.destination,1090],[input.destination,1220]] : DEMO_DESTINATIONS;
+      const offers = [];
+      input.origins.forEach((origin, oi) => candidates.forEach(([destination, base], index) => {
+        if (origin === destination) return;
+        const departDate = mode === "fixed" ? input.departDate : addDays(input.earliest, Math.min(index * 5 + oi * 2, Math.max(0, daysBetween(input.earliest, input.latest) - input.stayMin)));
+        const stayDays = mode === "fixed" ? daysBetween(input.departDate, input.returnDate) : input.stayMin + (index % Math.max(1, input.stayMax - input.stayMin + 1));
+        const returnDate = mode === "fixed" ? input.returnDate : addDays(departDate, stayDays);
+        if (mode !== "fixed" && returnDate > input.latest) return;
+        const priceCny = Math.round(base + oi * 110 + index * 37 + stableNumber(`${origin}${destination}${departDate}`) % 260);
+        if (priceCny > input.budget) return;
+        const stops = index % 3 === 0 ? 0 : 1;
+        if (stops > input.maxStops) return;
+        offers.push({ id:`demo-${origin}-${destination}-${departDate}-${returnDate}-${index}`, origin, destination, originName:AIRPORT_NAMES[origin] || origin, destinationName:AIRPORT_NAMES[destination] || destination, departDate, returnDate, stayDays, priceCny, cabin:"ECONOMY", adults:1, stops, provider:"演示数据", otherSourceCount:0, status:"demo", fetchedAt:new Date().toISOString(), deepLink:"", baggage:"待供应商确认", taxesIncluded:null });
+      }));
+      return offers.sort((a,b) => a.priceCny - b.priceCny);
+    }
+
+    function renderResults(offers, meta, mode) {
+      $("#results").hidden = false;
+      const warnings = meta.warnings || [];
+      if (warnings.length) showStatus(warnings.join(" "));
+      const titleMap = { fixed:"预算内目的地", flexible:"低价旅行窗口", destination:"最低价往返时间" };
+      $("#resultTitle").textContent = titleMap[mode];
+      $("#resultSummary").textContent = `${offers.length} 个结果 · 查询于 ${formatTime(meta.searchedAt || new Date().toISOString())}${meta.demo ? " · 演示模式" : ""}`;
+      const list = $("#resultList"); list.innerHTML = "";
+      if (!offers.length) list.innerHTML = '<div class="empty">没有找到符合预算和日期的结果。试试提高预算、放宽中转或延长时间窗口。</div>';
+      offers.forEach((offer, index) => list.append(makeTicket(offer, index)));
+      const calendar = $("#calendar"); calendar.hidden = mode !== "destination" || !offers.length;
+      if (!calendar.hidden) renderCalendar(offers);
+      $("#results").scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"start" });
+    }
+
+    function makeTicket(offer, index) {
+      const article = document.createElement("article"); article.className = "ticket"; article.style.setProperty("--i", index); article.dataset.id = offer.id;
+      const statusLabel = offer.status === "live" ? "实时价" : offer.status === "demo" ? "演示数据" : "近期参考价";
+      article.innerHTML = `<div class="ticket-main"><div><div class="place-code">${escapeHTML(offer.origin)}</div><div class="place-name">${escapeHTML(offer.originName || AIRPORT_NAMES[offer.origin] || offer.origin)}</div></div><div class="route"><span>${offer.stops === 0 ? "直飞" : `最多 ${offer.stops} 次中转`}</span><div class="route-line"></div><span>${offer.stayDays} 天</span></div><div style="text-align:right"><div class="place-code">${escapeHTML(offer.destination)}</div><div class="place-name">${escapeHTML(offer.destinationName || AIRPORT_NAMES[offer.destination] || offer.destination)}</div></div><div class="dates"><span>去程 ${formatDate(offer.departDate)}</span><span>返程 ${formatDate(offer.returnDate)}</span><span>${escapeHTML(offer.provider)} · ${statusLabel}</span><span>行李/税费：${escapeHTML(offer.baggage || "待供应商确认")}</span>${offer.otherSourceCount ? `<span>另有 ${offer.otherSourceCount} 个来源</span>` : ""}</div></div><div class="ticket-price"><span class="price-label">往返 / 1 人</span><div class="price"><small>¥</small>${Number(offer.priceCny).toLocaleString("zh-CN")}</div><div class="history" data-history>本站记录查询中…</div><button class="refresh-button" type="button">${offer.status === "demo" ? "演示结果" : "复价并前往"}</button></div>`;
+      $(".refresh-button", article).addEventListener("click", () => refreshAndOpen(offer, article));
+      loadHistory(offer, $("[data-history]", article));
+      return article;
+    }
+
+    async function loadHistory(offer, target) {
+      if (!apiBase() || offer.status === "demo") { target.textContent = "本站历史：暂无真实记录"; return; }
+      const params = new URLSearchParams({ origin:offer.origin, destination:offer.destination, departDate:offer.departDate, returnDate:offer.returnDate, cabin:offer.cabin || "ECONOMY", adults:String(offer.adults || 1) });
+      try {
+        const response = await fetch(`${apiBase()}/api/price-history?${params}`); const payload = await response.json();
+        target.textContent = payload.data ? `本站记录最低 ¥${Number(payload.data.lowest_price_cny).toLocaleString("zh-CN")}` : "本站历史：首次记录";
+      } catch { target.textContent = "本站历史：暂不可用"; }
+    }
+
+    async function refreshAndOpen(offer, article) {
+      if (offer.status === "demo" || !apiBase()) return toast("这是演示数据，连接真实接口后才能复价和跳转");
+      const button = $(".refresh-button", article); const oldPrice = offer.priceCny;
+      button.disabled = true; button.innerHTML = '<span class="spinner"></span>复价中';
+      try {
+        const response = await fetch(`${apiBase()}/api/refresh`, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ offer }) });
+        const payload = await response.json(); if (!response.ok) throw new Error(payload.message || "复价失败");
+        const fresh = payload.data; $(".price", article).innerHTML = `<small>¥</small>${Number(fresh.priceCny).toLocaleString("zh-CN")}`;
+        const change = fresh.priceCny === oldPrice ? "价格未变化" : `价格由 ¥${oldPrice.toLocaleString("zh-CN")} 变为 ¥${Number(fresh.priceCny).toLocaleString("zh-CN")}`;
+        toast(`${change} · ${formatTime(fresh.fetchedAt)}`);
+        if (fresh.deepLink) setTimeout(() => window.open(fresh.deepLink, "_blank", "noopener,noreferrer"), 350);
+        else toast(`${change}；当前供应商没有返回跳转链接`);
+      } catch (error) { toast(error.message || "实时复价失败"); }
+      finally { button.disabled = false; button.textContent = "再次复价"; }
+    }
+
+    function renderCalendar(offers) {
+      const byDate = new Map(); offers.forEach((offer) => { const old = byDate.get(offer.departDate); if (!old || offer.priceCny < old.priceCny) byDate.set(offer.departDate, offer); });
+      const values = [...byDate.values()].sort((a,b) => a.departDate.localeCompare(b.departDate));
+      const lowest = Math.min(...values.map((offer) => offer.priceCny));
+      $("#calendarGrid").innerHTML = values.slice(0, 16).map((offer) => `<div class="calendar-cell ${offer.priceCny === lowest ? "best" : ""}"><div class="calendar-date">${formatDate(offer.departDate)} 出发</div><div class="calendar-price">¥${offer.priceCny.toLocaleString("zh-CN")}</div></div>`).join("");
+    }
+
+    function setupSettings() {
+      const dialog = $("#settingsDialog");
+      $("#settingsButton").addEventListener("click", () => { $("#apiBase").value = apiBase(); dialog.showModal(); });
+      $("#settingsForm").addEventListener("submit", (event) => {
+        const submitter = event.submitter;
+        if (submitter?.value !== "save") return;
+        const value = $("#apiBase").value.trim().replace(/\/$/, "");
+        if (value) localStorage.setItem("lowfare.apiBase", value); else localStorage.removeItem("lowfare.apiBase");
+        toast(value ? "Worker 地址已保存" : "已切换为本地演示模式");
+      });
+    }
+
+    function setDefaultDates() {
+      const today = new Date(); const earliest = isoDate(addLocalDays(today, 21)); const latest = isoDate(addLocalDays(today, 120));
+      $("#fixedDepart").value = earliest; $("#fixedReturn").value = isoDate(addLocalDays(today, 27));
+      $("#flexEarliest").value = earliest; $("#flexLatest").value = latest;
+      $("#destEarliest").value = earliest; $("#destLatest").value = latest;
+      const saved = JSON.parse(localStorage.getItem("lowfare.preferences") || "{}");
+      ["fixedBudget","flexBudget","destBudget","flexMin","flexMax","destMin","destMax"].forEach((id) => { if (saved[id] != null) $("#" + id).value = saved[id]; });
+    }
+
+    function persistPreferences(form) { const saved = JSON.parse(localStorage.getItem("lowfare.preferences") || "{}"); $$('input[type="number"]', form).forEach((input) => saved[input.id] = input.value); localStorage.setItem("lowfare.preferences", JSON.stringify(saved)); }
+    function persistOrigins() { localStorage.setItem("lowfare.origins", JSON.stringify(state.origins)); }
+    function codeFrom(value = "") { return (String(value).toUpperCase().match(/[A-Z]{3}/) || [""])[0]; }
+    function showStatus(message) { const el = $("#statusStrip"); el.textContent = message; el.classList.add("show"); }
+    function hideStatus() { $("#statusStrip").classList.remove("show"); }
+    function toast(message) { const el = $("#toast"); el.textContent = message; el.classList.add("show"); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 3300); }
+    function formatDate(date) { return new Intl.DateTimeFormat("zh-CN", { month:"short", day:"numeric", weekday:"short", timeZone:"UTC" }).format(new Date(date + "T00:00:00Z")); }
+    function formatTime(date) { return new Intl.DateTimeFormat("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(date)); }
+    function daysBetween(a,b) { return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000); }
+    function addDays(date, days) { const d = new Date(date + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0,10); }
+    function addLocalDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+    function isoDate(date) { const offset = date.getTimezoneOffset(); return new Date(date.getTime() - offset * 60000).toISOString().slice(0,10); }
+    function stableNumber(value) { return [...value].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7); }
+    function escapeHTML(value = "") { return String(value).replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]); }
+  </script>
+</body>
+</html>
