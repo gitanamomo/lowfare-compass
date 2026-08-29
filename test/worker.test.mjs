@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker, { dedupeOffers, demoOffers, normalizeOffer, offerFingerprint, validateSearch } from "../worker.js";
+import netlifyApi, { config as netlifyConfig } from "../netlify/functions/api.mjs";
 
 const baseFlex = {
   origins: ["CSX"], earliest: "2026-10-01", latest: "2026-12-31",
@@ -68,4 +69,56 @@ test("演示行程不伪装成实时复价", async () => {
   const payload = await response.json();
   assert.equal(payload.data.status, "demo");
   assert.equal(payload.meta.demo, true);
+});
+
+test("住宿接口在未配置密钥时返回三类特色示例和 Airbnb 日期入口", async () => {
+  const offer = demoOffers(validateSearch({ ...baseFlex, destination: "TYO" }, "destination"), "destination")[0];
+  const request = new Request("https://example.test/api/stays/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer, guests: 2, rooms: 1, maxNightly: 1000 }) });
+  const response = await worker.fetch(request, {});
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.meta.demo, true);
+  assert.equal(payload.data.length, 3);
+  assert.deepEqual(payload.data.map((item) => item.category), ["省钱首选", "当地特色", "综合最优"]);
+  assert.ok(payload.airbnbUrl.includes(offer.departDate));
+  assert.ok(payload.airbnbUrl.includes(offer.returnDate));
+});
+
+test("非白名单网页来源会被拒绝", async () => {
+  const request = new Request("https://example.test/api/health", { headers: { origin: "https://evil.example" } });
+  const response = await worker.fetch(request, { ALLOWED_ORIGINS: "https://gitanamomo.github.io" });
+  assert.equal(response.status, 403);
+});
+
+test("Netlify 同域 API 入口复用统一 Worker 并启用限流", async () => {
+  const response = await netlifyApi(new Request("https://gina-passport.netlify.app/api/health", { headers: { origin: "https://gina-passport.netlify.app" } }));
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.ok, true);
+  assert.equal(netlifyConfig.path, "/api/*");
+  assert.equal(netlifyConfig.rateLimit.windowLimit, 30);
+});
+
+test("Amadeus 免费密钥可返回真实酒店价格并跳转购买平台", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes("/security/oauth2/token")) return Response.json({ access_token: "test-token" });
+    if (value.includes("/hotels/by-city")) return Response.json({ data: [{ hotelId: "HLPAR001" }] });
+    if (value.includes("/hotel-offers")) return Response.json({ data: [{ hotel: { hotelId: "HLPAR001", name: "Gina Test Hotel", cityCode: "PAR" }, offers: [{ id: "ROOM1", price: { total: "1200", currency: "CNY" }, room: { typeEstimated: { category: "DELUXE_ROOM" } } }] }] });
+    throw new Error(`unexpected fetch ${value}`);
+  };
+  try {
+    const offer = { origin: "CSX", destination: "PAR", originName: "长沙", destinationName: "巴黎", departDate: "2026-10-01", returnDate: "2026-10-04", priceCny: 4200, stops: 1, status: "live", provider: "test", adults: 1, cabin: "ECONOMY" };
+    const request = new Request("https://example.test/api/stays/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer, guests: 2, rooms: 1, maxNightly: 1000 }) });
+    const response = await worker.fetch(request, { AMADEUS_CLIENT_ID: "id", AMADEUS_CLIENT_SECRET: "secret", AMADEUS_BASE_URL: "https://test.api.amadeus.com" });
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.meta.demo, false);
+    assert.equal(payload.data[0].name, "Gina Test Hotel");
+    assert.equal(payload.data[0].priceTotalCny, 1200);
+    assert.ok(payload.data[0].deepLink.includes("booking.com"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

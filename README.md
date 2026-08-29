@@ -1,9 +1,11 @@
-# 低价罗盘
+# Gina的低价护照
 
-一个按预算、日期或目的地寻找低价往返机票的轻量网页。前端是纯 HTML/CSS/JS，部署到 GitHub Pages；Cloudflare Worker 聚合机票接口并保护密钥，D1 保存共享价格历史。
+一个按预算、日期或目的地寻找低价往返机票并匹配特色住宿的轻量网页。前端是纯 HTML/CSS/JS，生产环境使用 Netlify CDN 与 Functions；供应商密钥只保存在服务端环境变量中。Cloudflare Worker + D1 保留为可选部署方案。
 
 - 在线体验：https://gitanamomo.github.io/lowfare-compass/
 - GitHub 仓库：https://github.com/gitanamomo/lowfare-compass
+
+> GitHub Pages 地址用于静态演示；Netlify 正式地址会在首次生产部署后补充。
 
 > 价格仅用于旅行规划。程序不出票、不收款，购买前必须到供应商页面确认最终价格、税费和行李规则。
 
@@ -12,6 +14,8 @@
 - 日期已定：按固定往返日期寻找预算内目的地。
 - 时间自由：按时间窗口、停留天数和预算寻找低价组合。
 - 目的地明确：整理最低价往返日期并显示日期价格板。
+- 住宿匹配：每个航班提供省钱首选、当地特色和综合最优三类住宿，并计算机票加住宿的人均总价。
+- 真实住宿默认使用与机票共用密钥的 Amadeus Hotels；若获得 Booking.com 合作权限，可升级为带图片和评分的结果。Airbnb 仅作为相同目的地和日期的补充搜索入口。
 - 最多三个出发城市，支持直飞或最多一次中转。
 - 明确区分供应商近期参考价、实时复价、演示数据和本站历史最低价。
 - 没有配置接口时自动使用明显标记的演示数据，演示结果不能跳转购买。
@@ -22,7 +26,10 @@
 ```text
 travel/
 ├── index.html              # 单文件前端：页面、样式和交互
-├── worker.js               # Cloudflare Worker API、供应商适配与演示降级
+├── worker.js               # 通用 API、供应商适配与演示降级
+├── netlify.toml            # Netlify 构建、Functions 与安全响应头
+├── netlify/functions/
+│   └── api.mjs             # Netlify API 入口与按 IP 限流
 ├── schema.sql              # D1 价格历史和搜索缓存表
 ├── wrangler.jsonc          # Worker 与 D1 配置模板
 ├── package.json            # 测试、本地运行和部署命令
@@ -58,12 +65,25 @@ npx wrangler dev
 
 ## 数据源配置
 
-供应商密钥只允许通过 Worker Secrets 配置，禁止写进 `index.html`、`worker.js`、`wrangler.jsonc` 或 Git：
+供应商密钥禁止写进 `index.html`、`worker.js`、配置文件或 Git。Netlify 正式环境在项目的 **Environment variables** 中配置：
+
+```dotenv
+AMADEUS_CLIENT_ID=your_client_id
+AMADEUS_CLIENT_SECRET=your_client_secret
+AMADEUS_BASE_URL=https://api.amadeus.com
+ALLOW_DEMO=true
+```
+
+可选增加 `TRAVELPAYOUTS_TOKEN`、`BOOKING_API_KEY`、`BOOKING_AFFILIATE_ID` 和 `BOOKING_BASE_URL`。环境变量更新后需要重新部署。
+
+Cloudflare 备用部署使用 Worker Secrets：
 
 ```bash
 npx wrangler secret put TRAVELPAYOUTS_TOKEN
 npx wrangler secret put AMADEUS_CLIENT_ID
 npx wrangler secret put AMADEUS_CLIENT_SECRET
+npx wrangler secret put BOOKING_API_KEY
+npx wrangler secret put BOOKING_AFFILIATE_ID
 ```
 
 开发环境可在未提交的 `.dev.vars` 中设置：
@@ -73,11 +93,19 @@ TRAVELPAYOUTS_TOKEN=your_token
 AMADEUS_CLIENT_ID=your_client_id
 AMADEUS_CLIENT_SECRET=your_client_secret
 AMADEUS_BASE_URL=https://test.api.amadeus.com
+BOOKING_API_KEY=your_booking_api_token
+BOOKING_AFFILIATE_ID=your_affiliate_id
+BOOKING_BASE_URL=https://demandapi-sandbox.booking.com/3.2
 ```
 
 - Travelpayouts：提供近期缓存价格，结果标记为“近期参考价”。
 - Amadeus：用于探索价格和选中行程后的实时 Flight Offers 复价；官方数据覆盖并不完整。
 - Skyscanner：已保留供应商适配位置，获得合作 API 审核后再接入 Indicative 和 Live Prices，不能在客户端直接调用。
+- Booking.com Demand API 3.2：搜索所选日期的真实可订住宿，补充详情图片并跳转供应商页面；需要合作伙伴 API token 和 Affiliate ID。
+- Amadeus Hotels：与机票共用同一套免费额度密钥；获取真实酒店名称、房型和实时可订价格，再跳转 Booking.com 按同日期复核购买。个人版优先采用这条路径。
+- Airbnb：只生成普通的同日期搜索入口，不调用未公开 API、不抓取网页，也不在本站声称其价格可订。
+- Netlify Function：线上默认使用同域 `/api/*`，每个 IP 每分钟最多 30 个请求；免费计划达到硬上限后停止服务，不会自动产生超额费用。
+- Cloudflare Worker：只接受配置的 GitHub Pages/本地来源，每个 IP 每天最多 120 次写查询；供应商密钥仅保存在 Worker Secrets。
 
 ## API
 
@@ -90,6 +118,7 @@ AMADEUS_BASE_URL=https://test.api.amadeus.com
 | POST | `/api/search/destination` | 固定目的地最低日期 |
 | POST | `/api/refresh` | 对选中行程实时复价 |
 | GET | `/api/price-history` | 查询同航线、日期、舱位和人数的历史最低价 |
+| POST | `/api/stays/search` | 匹配真实住宿或返回明确标注的特色住宿类型示例 |
 
 三种搜索接口都接收 `origins`、`budget` 和 `maxStops`。固定日期模式使用 `departDate`、`returnDate`；灵活模式使用 `earliest`、`latest`、`stayMin`、`stayMax`；目的地模式额外使用 `destination`。
 
@@ -106,7 +135,14 @@ npm run validate
 
 ## 部署
 
-### Worker 和 D1
+### Netlify（正式方案）
+
+1. 将 GitHub 仓库导入 Netlify，生产分支选择 `main`。
+2. Netlify 自动读取 `netlify.toml`，执行 `npm run build:netlify`，发布 `dist/` 并部署 `/api/*` Function。
+3. 在 Netlify 项目环境变量中添加 Amadeus 密钥；不要写入仓库。
+4. 触发一次生产部署，并检查 `/api/health`、真实搜索、住宿匹配和购买跳转。
+
+### Cloudflare Worker 和 D1（备用）
 
 1. 创建 D1 并替换 `wrangler.jsonc` 中的数据库 ID。
 2. 将 `ALLOWED_ORIGINS` 改成 GitHub Pages 正式域名；多个地址用英文逗号分隔。
@@ -121,7 +157,7 @@ npm run validate
 
 ### GitHub Pages
 
-将仓库发布源设为主分支根目录。`index.html` 没有构建步骤，可直接由 GitHub Pages 托管。
+将仓库发布源设为主分支根目录。GitHub Pages 仅展示静态演示；正式在线搜索使用 Netlify。
 
 ## 修改指南
 
@@ -130,6 +166,7 @@ npm run validate
 - 修改价格历史口径：同时修改 `offerFingerprint()`、`schema.sql` 索引和 README 说明。
 - 增加搜索参数：前端三个表单、`formPayload()`、Worker 的 `validateSearch()` 和自动测试必须同步修改。
 - 任何供应商参考价都不得标为实时价；只有即时 Flight Offers 查询成功后才允许使用 `status: "live"`。
+- Airbnb 只能作为补充跳转入口；没有 Airbnb 正式合作授权时不得抓取房源、图片、价格或可订状态。
 
 ## 改动记录
 
@@ -140,3 +177,12 @@ npm run validate
 - 建立 D1 历史价格 schema、统一结果模型、去重排序和安全检查。
 - 补充本地运行、数据源配置、测试和部署说明。
 - 创建 GitHub 仓库并启用 GitHub Pages。
+
+### 0.2.0 · 2026-08-29（待发布）
+
+- 将界面重构为彩色护照拼贴风格。
+- 增加 Booking.com 真实住宿适配、三类特色住宿推荐和旅行总价估算。
+- 增加 Airbnb 同目的地、同日期的补充搜索入口。
+- 品牌名称更新为“Gina的低价护照”。
+- 增加 Amadeus 实时酒店价格适配、购买平台跳转、来源白名单和每日查询限额。
+- 增加 Netlify Function、同域 API、每 IP 限流、安全响应头和 GitHub 持续部署配置。

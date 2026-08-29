@@ -29,6 +29,8 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const url = new URL(request.url);
     try {
+      if (!originAllowed(request, env)) return json({ error: "ORIGIN_NOT_ALLOWED", message: "此来源没有访问权限" }, 403, cors);
+      if (request.method === "POST") await enforceRateLimit(env.DB, request, 120);
       if (url.pathname === "/api/health") return json({ ok: true, providers: providerStatus(env) }, 200, cors);
       if (url.pathname === "/api/places" && request.method === "GET") {
         const q = (url.searchParams.get("q") || "").trim().toLowerCase();
@@ -47,6 +49,12 @@ export default {
         const refreshed = await refreshOffer(body.offer, env);
         if (refreshed.status !== "demo") await recordOffers(env.DB, [refreshed]);
         return json({ data: refreshed, meta: { demo: refreshed.status === "demo" } }, 200, cors);
+      }
+      if (url.pathname === "/api/stays/search" && request.method === "POST") {
+        const body = await readBody(request);
+        validateOffer(body.offer);
+        const result = await searchStays(body, env);
+        return json(result, 200, cors);
       }
       const mode = routeMode(url.pathname);
       if (mode && request.method === "POST") {
@@ -70,6 +78,17 @@ function routeMode(pathname) {
     "/api/search/destination": "destination"
   })[pathname];
 }
+
+const STAY_PROFILES = {
+  TYO: [["省钱首选", "昭和街区小旅馆", "浅草 / 上野", "🏮", "交通方便，适合把预算留给城市体验。"], ["当地特色", "传统町屋风格住宿", "谷中 / 神乐坂", "🏯", "木格窗、榻榻米与老街氛围，是东京生活感最强的一晚。"], ["综合最优", "温泉旅馆体验", "近郊温泉区", "♨️", "价格、日式体验与休息质量更平衡。"]],
+  OSA: [["省钱首选", "商店街旁小旅馆", "天满 / 新世界", "🏮", "靠近餐饮和地铁，控制住宿总价。"], ["当地特色", "大阪町屋民宿", "空堀 / 中崎町", "🏯", "住进保留老屋与巷弄气息的街区。"], ["综合最优", "温泉主题酒店", "难波周边", "♨️", "兼顾交通、泡汤和夜间美食。"]],
+  SEL: [["省钱首选", "地铁旁设计旅舍", "弘大 / 钟路", "🚇", "交通便利，适合短途城市旅行。"], ["当地特色", "韩屋住宿", "北村 / 西村", "🛖", "院落、木结构和地暖体验最有首尔特色。"], ["综合最优", "老街精品酒店", "益善洞", "🌙", "传统街区氛围与现代舒适度兼具。"]],
+  BKK: [["省钱首选", "旧城精品旅舍", "拍那空", "🛺", "靠近寺庙与河岸，价格友好。"], ["当地特色", "泰式河畔老宅", "湄南河沿岸", "🪷", "木屋、庭院和水上生活是曼谷代表体验。"], ["综合最优", "绿意庭院酒店", "阿里 / 沙吞", "🌴", "闹中取静，设计感与交通更均衡。"]],
+  SIN: [["省钱首选", "胶囊设计旅店", "牛车水", "🛏️", "在高住宿成本城市控制总预算。"], ["当地特色", "店屋改造精品酒店", "加东 / 小印度", "🌈", "彩色立面与南洋文化最具新加坡辨识度。"], ["综合最优", "传统街区设计酒店", "甘榜格南", "🕌", "步行体验、餐饮和城市交通兼顾。"]],
+  HKG: [["省钱首选", "城市微型旅店", "油麻地 / 深水埗", "🚋", "靠近地铁和街市，适合控制预算。"], ["当地特色", "唐楼改造旅舍", "上环 / 西营盘", "🏙️", "旧城肌理、楼梯与霓虹街景更有香港味道。"], ["综合最优", "离岛海景民宿", "长洲 / 南丫岛", "⛴️", "用一晚换取海风与慢节奏。"]],
+  PAR: [["省钱首选", "地铁旁独立小旅馆", "十一区 / 十二区", "🥐", "避开核心景区溢价，仍能快速进城。"], ["当地特色", "奥斯曼老宅客房", "九区 / 十七区", "🗝️", "高窗、壁炉和街区咖啡馆组成经典巴黎体验。"], ["综合最优", "运河边精品酒店", "圣马丁运河", "🎨", "生活感、设计感和交通较均衡。"]],
+  default: [["省钱首选", "交通枢纽旁高分住宿", "公共交通便利区", "🎒", "控制总价并减少往返机场的时间成本。"], ["当地特色", "传统建筑改造住宿", "历史街区", "🏡", "优先体验当地建筑、街区与生活方式。"], ["综合最优", "本地设计精品酒店", "市中心外缘", "✨", "兼顾价格、评分、位置与特色。"]]
+};
 
 export function validateSearch(raw, mode) {
   const origins = Array.isArray(raw.origins) ? [...new Set(raw.origins.map(cleanCode))] : [];
@@ -131,6 +150,187 @@ async function searchAll(input, mode, env) {
   };
   if (!demo) await writeCache(env.DB, cacheKey, result, 30);
   return result;
+}
+
+async function searchStays(body, env) {
+  const offer = normalizeOffer(body.offer, body.offer);
+  const guests = clampInt(body.guests, 1, 8, 2);
+  const rooms = clampInt(body.rooms, 1, 4, 1);
+  const maxNightly = clampInt(body.maxNightly, 100, 10000, Math.max(500, Math.round(offer.priceCny * 0.45)));
+  const cacheKey = JSON.stringify(["stays", offer.destination, offer.departDate, offer.returnDate, guests, rooms, maxNightly]);
+  const cached = await readCache(env.DB, cacheKey);
+  if (cached) return { ...cached, meta: { ...cached.meta, cached: true } };
+  const airbnbUrl = airbnbSearchLink(offer.destinationName || airportName(offer.destination), offer.departDate, offer.returnDate, guests);
+  if (env.BOOKING_API_KEY && env.BOOKING_AFFILIATE_ID) {
+    try {
+      const stays = await searchBookingStays(offer, { guests, rooms, maxNightly }, env);
+      if (stays.length) {
+        const result = { data: stays, airbnbUrl, meta: { demo: false, cached: false, provider: "Booking.com", searchedAt: new Date().toISOString(), notice: "住宿价格为所选日期和入住人数的当前参考价，预订前请在供应商页面复核税费与取消政策。" } };
+        await writeCache(env.DB, cacheKey, result, 20);
+        return result;
+      }
+    } catch (error) {
+      const result = demoStayResult(offer, { guests, rooms, maxNightly }, airbnbUrl);
+      result.meta.notice = `真实住宿接口暂时不可用（${error.message}），当前显示特色住宿类型示例。`;
+      return result;
+    }
+  }
+  if (env.AMADEUS_CLIENT_ID && env.AMADEUS_CLIENT_SECRET) {
+    try {
+      const stays = await searchAmadeusStays(offer, { guests, rooms, maxNightly }, env);
+      if (stays.length) {
+        const result = { data: stays, airbnbUrl, meta: { demo: false, cached: false, provider: "Amadeus Hotels", searchedAt: new Date().toISOString(), notice: "酒店名称、房型和价格来自 Amadeus 实时可订结果；点击后到 Booking.com 按相同日期复核并购买。" } };
+        await writeCache(env.DB, cacheKey, result, 20);
+        return result;
+      }
+    } catch (error) {
+      const result = demoStayResult(offer, { guests, rooms, maxNightly }, airbnbUrl);
+      result.meta.notice = `Amadeus 酒店接口暂时不可用（${error.message}），当前显示特色住宿类型示例。`;
+      return result;
+    }
+  }
+  return demoStayResult(offer, { guests, rooms, maxNightly }, airbnbUrl);
+}
+
+async function searchAmadeusStays(offer, options, env) {
+  const token = await amadeusToken(env);
+  const listParams = new URLSearchParams({ cityCode: offer.destination, radius: "20", radiusUnit: "KM", hotelSource: "ALL" });
+  const list = await amadeusGet(`/v1/reference-data/locations/hotels/by-city?${listParams}`, token, env);
+  const hotelIds = (list.data || []).map((item) => item.hotelId).filter(Boolean).slice(0, 20);
+  if (!hotelIds.length) return [];
+  const offerParams = new URLSearchParams({
+    hotelIds: hotelIds.join(","), adults: String(options.guests), roomQuantity: String(options.rooms),
+    checkInDate: offer.departDate, checkOutDate: offer.returnDate, currency: "CNY", bestRateOnly: "true"
+  });
+  const payload = await amadeusGet(`/v3/shopping/hotel-offers?${offerParams}`, token, env);
+  const nights = Math.max(1, diffDays(offer.departDate, offer.returnDate));
+  const normalized = (payload.data || []).map((entry) => {
+    const roomOffer = (entry.offers || [])[0];
+    const total = Number(roomOffer?.price?.total);
+    const currency = roomOffer?.price?.currency || "CNY";
+    if (!roomOffer || !Number.isFinite(total) || currency !== "CNY") return null;
+    const name = entry.hotel?.name || `酒店 ${entry.hotel?.hotelId || ""}`;
+    const roomType = roomOffer.room?.typeEstimated?.category || roomOffer.room?.description?.text || "实时可订客房";
+    return {
+      id: `amadeus-hotel-${entry.hotel?.hotelId}-${roomOffer.id}`, name,
+      neighborhood: `${airportName(offer.destination)} · ${textValue(entry.hotel?.cityCode) || offer.destination}`,
+      priceTotalCny: Math.round(total), pricePerNightCny: Math.round(total / nights),
+      rating: null, reviewCount: null, imageUrl: "", icon: "🏨", provider: "Amadeus 实时酒店价", status: "live",
+      deepLink: hotelPurchaseLink(name, offer.destinationName || airportName(offer.destination), offer.departDate, offer.returnDate, options.guests, options.rooms),
+      typeLabel: textValue(roomType), nights, guests: options.guests
+    };
+  }).filter(Boolean).filter((stay) => stay.pricePerNightCny <= options.maxNightly).sort((a, b) => a.priceTotalCny - b.priceTotalCny);
+  return selectStayRecommendations(normalized, offer);
+}
+
+async function searchBookingStays(offer, options, env) {
+  const cityName = offer.destinationName || airportName(offer.destination);
+  const autocomplete = await bookingCall("/common/autocomplete", {
+    query: cityName, country: "cn", language: "zh-cn", filters: { types: ["city"] }
+  }, env);
+  const location = (autocomplete.data || []).find((item) => String(item.type || "").toLowerCase() === "city") || (autocomplete.data || [])[0];
+  const cityId = Number(location?.id || location?.city);
+  if (!Number.isFinite(cityId)) throw new Error("未找到 Booking.com 城市编号");
+  const search = await bookingCall("/accommodations/search", {
+    booker: { country: "cn", platform: "desktop" },
+    checkin: offer.departDate, checkout: offer.returnDate, city: cityId, currency: "CNY",
+    guests: { number_of_adults: options.guests, number_of_rooms: options.rooms },
+    extras: ["products"], filters: { price: { maximum: options.maxNightly } }
+  }, env);
+  const rates = (search.data || []).slice(0, 18);
+  if (!rates.length) return [];
+  const ids = rates.map((item) => Number(item.id)).filter(Number.isFinite).slice(0, 18);
+  const detailsPayload = await bookingCall("/accommodations/details", { accommodations: ids, extras: ["photos"], languages: ["zh-cn", "en-gb"] }, env);
+  const details = new Map((detailsPayload.data || []).map((item) => [String(item.id), item]));
+  const nights = Math.max(1, diffDays(offer.departDate, offer.returnDate));
+  const normalized = rates.map((rate) => {
+    const detail = details.get(String(rate.id)) || {};
+    const total = Number(rate.price?.display ?? rate.price?.book ?? rate.price?.total);
+    if (!Number.isFinite(total)) return null;
+    return {
+      id: `booking-${rate.id}`, name: textValue(detail.name || detail.name_translated) || `住宿 ${rate.id}`,
+      neighborhood: textValue(detail.location?.address || detail.address) || cityName,
+      priceTotalCny: Math.round(total), pricePerNightCny: Math.round(total / nights),
+      rating: Number(detail.review_score || detail.rating?.review_score || 0),
+      reviewCount: Number(detail.review_count || detail.rating?.review_count || 0),
+      imageUrl: bookingPhoto(detail), provider: "Booking.com", status: "live",
+      deepLink: webUrl(rate.url) || rate.deep_link_url || webUrl(detail.url) || detail.deep_link_url || "",
+      typeLabel: accommodationType(detail), nights, guests: options.guests
+    };
+  }).filter(Boolean).sort((a, b) => a.priceTotalCny - b.priceTotalCny);
+  return selectStayRecommendations(normalized, offer);
+}
+
+function selectStayRecommendations(stays, offer) {
+  if (!stays.length) return [];
+  const chosen = [];
+  const add = (stay, category, reason) => { if (stay && !chosen.some((item) => item.id === stay.id)) chosen.push({ ...stay, category, reason, tripTotalCny: offer.priceCny + Math.round(stay.priceTotalCny / Math.max(1, stay.guests || 2)) }); };
+  add(stays[0], "省钱首选", "住宿总价最低，适合优先控制整趟旅行预算。");
+  const bestRated = [...stays].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+  add(bestRated, "当地口碑", "在当前结果中评分更突出，适合看重入住体验。");
+  const mid = stays[Math.min(stays.length - 1, Math.floor(stays.length / 3))];
+  add(mid, "综合最优", "在价格、位置和住宿体验之间更均衡。");
+  for (const stay of stays) { if (chosen.length >= 3) break; add(stay, "更多选择", "同日期可订的备选住宿。"); }
+  return chosen;
+}
+
+function demoStayResult(offer, options, airbnbUrl) {
+  const profile = STAY_PROFILES[offer.destination] || STAY_PROFILES.default;
+  const nights = Math.max(1, diffDays(offer.departDate, offer.returnDate));
+  const base = Math.min(options.maxNightly, Math.max(260, Math.round(offer.priceCny * 0.22)));
+  const data = profile.map(([category, name, neighborhood, icon, reason], index) => {
+    const pricePerNightCny = Math.round(base * [0.72, 1.08, 0.92][index]);
+    const priceTotalCny = pricePerNightCny * nights;
+    return { id: `demo-stay-${offer.destination}-${index}`, name, neighborhood, icon, category, reason, pricePerNightCny, priceTotalCny, tripTotalCny: offer.priceCny + Math.round(priceTotalCny / Math.max(1, options.guests)), nights, guests: options.guests, rating: null, reviewCount: null, imageUrl: "", provider: "特色住宿类型示例", status: "demo", deepLink: "" };
+  });
+  return { data, airbnbUrl, meta: { demo: true, cached: false, provider: "住宿示例", searchedAt: new Date().toISOString(), notice: "尚未配置 Booking.com Demand API，以下为当地特色住宿类型与预算示例，不代表真实房源或可订价格。" } };
+}
+
+async function bookingCall(path, body, env) {
+  const base = env.BOOKING_BASE_URL || "https://demandapi.booking.com/3.2";
+  const response = await fetchWithTimeout(`${base}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json", Authorization: `Bearer ${env.BOOKING_API_KEY}`, "X-Affiliate-Id": env.BOOKING_AFFILIATE_ID },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`Booking.com ${response.status}`);
+  return response.json();
+}
+
+function bookingPhoto(detail) {
+  const photos = detail.photos || [];
+  const photo = photos.find((item) => item.main_photo) || photos[0];
+  if (!photo) return "";
+  if (typeof photo === "string") return photo;
+  return photo.url?.large || photo.url?.standard || photo.url || photo.large || photo.maximum || "";
+}
+
+function accommodationType(detail) {
+  const value = detail.accommodation_type || detail.type || "当地住宿";
+  return textValue(value) || "当地住宿";
+}
+
+function webUrl(value) {
+  if (typeof value === "string") return value;
+  return value?.web || value?.app || "";
+}
+
+function textValue(value) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return value.name || value.text || value.address || Object.values(value).find((item) => typeof item === "string") || "";
+}
+
+function airbnbSearchLink(destinationName, checkin, checkout, adults) {
+  const place = encodeURIComponent(destinationName || "");
+  const params = new URLSearchParams({ checkin, checkout, adults: String(adults), source: "structured_search_input_header", locale: "zh" });
+  params.append("refinement_paths[]", "/homes");
+  return `https://www.airbnb.com/s/${place}/homes?${params}`;
+}
+
+function hotelPurchaseLink(hotelName, destinationName, checkin, checkout, adults, rooms) {
+  const params = new URLSearchParams({ ss: `${hotelName} ${destinationName}`, checkin, checkout, group_adults: String(adults), no_rooms: String(rooms), selected_currency: "CNY" });
+  return `https://www.booking.com/searchresults.zh-cn.html?${params}`;
 }
 
 async function searchTravelpayouts(input, mode, env) {
@@ -354,7 +554,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
 function providerStatus(env) {
   return [
     { id: "travelpayouts", configured: Boolean(env.TRAVELPAYOUTS_TOKEN), capability: "近期参考价" },
-    { id: "amadeus", configured: Boolean(env.AMADEUS_CLIENT_ID && env.AMADEUS_CLIENT_SECRET), capability: "探索价与实时复价" },
+    { id: "amadeus", configured: Boolean(env.AMADEUS_CLIENT_ID && env.AMADEUS_CLIENT_SECRET), capability: "机票探索、实时复价与实时酒店" },
+    { id: "booking", configured: Boolean(env.BOOKING_API_KEY && env.BOOKING_AFFILIATE_ID), capability: "实时住宿与跳转" },
     { id: "skyscanner", configured: false, capability: "预留适配位，需合作审核" }
   ];
 }
@@ -378,6 +579,25 @@ function corsHeaders(request, env) {
   const allowed = (env.ALLOWED_ORIGINS || "").split(",").map((v) => v.trim()).filter(Boolean);
   const allowOrigin = allowed.includes(origin) ? origin : (allowed.length ? allowed[0] : "*");
   return { "access-control-allow-origin": allowOrigin, "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type", "vary": "Origin" };
+}
+
+function originAllowed(request, env) {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  const allowed = (env.ALLOWED_ORIGINS || "").split(",").map((value) => value.trim()).filter(Boolean);
+  return !allowed.length || allowed.includes(origin);
+}
+
+async function enforceRateLimit(db, request, limit) {
+  if (!db?.prepare) return;
+  const ip = request.headers.get("cf-connecting-ip") || "local";
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `${ip}|${day}`;
+  await db.prepare(`INSERT INTO api_usage (usage_key, usage_day, request_count) VALUES (?, ?, 1) ON CONFLICT(usage_key) DO UPDATE SET request_count = request_count + 1`).bind(key, day).run();
+  const row = await db.prepare(`SELECT request_count FROM api_usage WHERE usage_key = ?`).bind(key).first();
+  if (Number(row?.request_count || 0) > limit) {
+    const error = new Error("今日查询次数已达安全上限，请明天再试"); error.status = 429; error.code = "RATE_LIMITED"; throw error;
+  }
 }
 
 function json(data, status, headers) {

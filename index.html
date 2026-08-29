@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f3eddf">
-  <meta name="description" content="按预算、日期或目的地寻找低价往返机票，明确区分参考价、实时价和本站历史低价。">
-  <title>低价罗盘｜往返机票计划</title>
+  <meta name="description" content="按预算、日期或目的地寻找低价往返机票，并匹配真实住宿、当地特色住宿类型与 Airbnb 补充入口。">
+  <title>Gina的低价护照｜机票＋特色住宿</title>
   <style>
     :root {
       --paper: #f3eddf; --paper-deep: #e7dcc6; --ink: #102f35; --ink-soft: #466065;
@@ -161,14 +161,105 @@
       footer { flex-direction: column; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+    /* 彩色护照拼贴主题 */
+    :root {
+      --paper: #fff8e8; --paper-deep: #ffe7a8; --ink: #17213b; --ink-soft: #536078;
+      --accent: #ff5b45; --accent-dark: #c82c2f; --teal: #007c70; --line: rgba(23,33,59,.28);
+      --white: #fffdf7; --warning: #8a4d00; --blue: #3155e7; --sun: #ffc83d; --mint: #53d5af;
+      --pink: #ff91b8; --violet: #8b6cf6; --radius: 14px; --shadow: 8px 9px 0 rgba(23,33,59,.16);
+    }
+    body { background: radial-gradient(circle at 7% 7%, rgba(255,145,184,.34), transparent 24rem), radial-gradient(circle at 90% 24%, rgba(83,213,175,.25), transparent 28rem), linear-gradient(#fff8e8, #fff3d4); }
+    body::before { opacity: .42; background-image: radial-gradient(var(--blue) .7px, transparent .7px); background-size: 18px 18px; mask-image: linear-gradient(to bottom, black, transparent 68%); }
+    header { border-bottom: 2px solid var(--ink); }
+    .brand-mark { border-radius: 9px; border: 2px solid var(--ink); background: var(--blue); box-shadow: 4px 4px 0 var(--sun); transform: rotate(-5deg); }
+    .brand-mark::before { background: var(--sun); }
+    .brand-mark::after { background: var(--white); }
+    .brand-name { font-family: "Hiragino Maru Gothic ProN", "Yuanti SC", sans-serif; font-weight: 900; }
+    .icon-button { border: 2px solid var(--ink); background: var(--sun); box-shadow: 3px 3px 0 var(--ink); font-weight: 800; }
+    .hero { grid-template-columns: 1.16fr .84fr; align-items: center; min-height: 500px; }
+    .eyebrow { color: var(--blue); }
+    h1 { font-family: "Hiragino Maru Gothic ProN", "Yuanti SC", sans-serif; font-weight: 900; letter-spacing: -.07em; transform: rotate(-1deg); }
+    h1 em { color: var(--accent); text-decoration: underline; text-decoration-color: var(--sun); text-decoration-thickness: .2em; text-underline-offset: -.08em; }
+    .hero-note { margin-top: 20px; border: 2px dashed var(--blue); border-radius: 10px; background: rgba(255,255,255,.55); padding: 11px 14px; transform: rotate(.4deg); }
+    .passport-collage { position: relative; min-height: 380px; }
+    .postcard { position: absolute; width: 210px; min-height: 250px; padding: 15px; border: 3px solid var(--ink); border-radius: 10px; box-shadow: 9px 10px 0 var(--ink); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+    .postcard::before { content: ""; position: absolute; inset: 10px; border: 2px dashed rgba(23,33,59,.35); border-radius: 6px; }
+    .postcard.one { left: 8%; top: 38px; background: var(--sun); transform: rotate(-9deg); }
+    .postcard.two { right: 2%; top: 74px; background: var(--mint); transform: rotate(8deg); }
+    .postcard-icon { position: relative; font-size: 70px; filter: drop-shadow(4px 5px 0 rgba(23,33,59,.16)); }
+    .postcard-copy { position: relative; }
+    .postcard-code { font: 900 42px/1 "Baskerville", serif; }
+    .postcard-label { margin-top: 6px; font-weight: 800; font-size: 12px; }
+    .round-stamp { position: absolute; z-index: 3; width: 106px; height: 106px; display: grid; place-items: center; border: 5px double var(--accent); border-radius: 50%; color: var(--accent); font: 900 13px/1.15 "Avenir Next", sans-serif; text-align: center; transform: rotate(-16deg); right: 27%; bottom: 2px; background: rgba(255,248,232,.76); }
+    .mode-nav { border: 3px solid var(--ink); background: var(--ink); gap: 3px; border-radius: 16px 16px 0 0; overflow: visible; }
+    .mode-tab { border: 0; min-height: 102px; }
+    .mode-tab:nth-child(1) { background: #ffb1ca; }
+    .mode-tab:nth-child(2) { background: var(--sun); }
+    .mode-tab:nth-child(3) { background: var(--mint); }
+    .mode-tab[aria-selected="true"] { color: var(--white); background: var(--blue); transform: translateY(-9px) rotate(-1deg); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); }
+    .mode-tab[aria-selected="true"] .tab-desc { color: #f0efff; }
+    .tab-number { color: var(--accent-dark); font-weight: 900; }
+    .search-panel { border: 3px solid var(--ink); border-top: 0; background: rgba(255,253,247,.94); box-shadow: 10px 11px 0 rgba(23,33,59,.2); }
+    input, select { border-bottom: 2px solid var(--ink); }
+    .add-origin { border: 2px solid var(--ink); background: var(--sun); box-shadow: 2px 2px 0 var(--ink); }
+    .chip { border: 2px solid var(--ink); background: #dfe5ff; transform: rotate(-1deg); }
+    .primary-button { border: 2px solid var(--ink); background: var(--accent); box-shadow: 5px 6px 0 var(--ink); }
+    .primary-button:hover { box-shadow: 7px 8px 0 var(--ink); }
+    .primary-button:active { box-shadow: 2px 2px 0 var(--ink); }
+    .status-strip { border: 2px dashed #b67800; background: #fff1bd; }
+    .section-head h2 { font-family: "Hiragino Maru Gothic ProN", "Yuanti SC", sans-serif; font-weight: 900; }
+    .badge { border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+    .badge:nth-child(1) { background: var(--pink); }.badge:nth-child(2) { background: var(--mint); }.badge:nth-child(3) { background: var(--sun); }
+    .ticket { border: 2px solid var(--ink); border-radius: 12px; box-shadow: 6px 7px 0 rgba(23,33,59,.18); overflow: visible; }
+    .ticket:nth-child(odd) { transform: rotate(-.18deg); }.ticket:nth-child(even) { transform: rotate(.18deg); }
+    .ticket:hover { transform: rotate(0) translateY(-2px); }
+    .ticket-price { border-left: 2px dashed var(--ink); background: #fff1c7; border-radius: 0 10px 10px 0; }
+    .price { color: var(--accent); }
+    .ticket-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; margin-top: 10px; }
+    .refresh-button, .stay-button { margin: 0; border: 2px solid var(--ink); border-radius: 999px; color: var(--ink); padding: 8px 12px; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 var(--ink); }
+    .refresh-button { background: var(--white); }.stay-button { background: var(--mint); }
+    .refresh-button:hover, .stay-button:hover { background: var(--blue); color: white; }
+    .stay-drawer { display: none; grid-column: 1 / -1; border-top: 3px solid var(--ink); padding: 22px; background: #e6ecff; border-radius: 0 0 10px 10px; }
+    .stay-drawer.open { display: block; animation: lift .3s ease both; }
+    .stay-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
+    .stay-head h3 { margin: 0 0 5px; font: 900 23px/1.15 "Hiragino Maru Gothic ProN", "Yuanti SC", sans-serif; }
+    .stay-head p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+    .airbnb-link { flex: 0 0 auto; display: inline-block; border: 2px solid var(--ink); border-radius: 999px; background: #ff5a5f; color: white; padding: 10px 14px; text-decoration: none; font-size: 12px; font-weight: 900; box-shadow: 3px 3px 0 var(--ink); }
+    .stay-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .stay-card { min-width: 0; background: var(--white); border: 2px solid var(--ink); border-radius: 11px; overflow: hidden; box-shadow: 4px 5px 0 rgba(23,33,59,.18); }
+    .stay-card:nth-child(1) { transform: rotate(-.7deg); }.stay-card:nth-child(2) { transform: rotate(.6deg); }.stay-card:nth-child(3) { transform: rotate(-.3deg); }
+    .stay-visual { height: 138px; position: relative; display: grid; place-items: center; background: var(--sun); overflow: hidden; }
+    .stay-card:nth-child(2) .stay-visual { background: var(--pink); }.stay-card:nth-child(3) .stay-visual { background: var(--mint); }
+    .stay-visual img { width: 100%; height: 100%; object-fit: cover; }
+    .stay-icon { font-size: 58px; filter: drop-shadow(4px 4px 0 rgba(23,33,59,.17)); }
+    .stay-category { position: absolute; left: 9px; top: 9px; border: 2px solid var(--ink); border-radius: 999px; background: var(--white); padding: 4px 8px; font-size: 10px; font-weight: 900; }
+    .stay-card-body { padding: 14px; }
+    .stay-name { margin: 0; font-size: 16px; line-height: 1.25; }
+    .stay-location { margin: 5px 0 9px; color: var(--ink-soft); font-size: 11px; }
+    .stay-reason { min-height: 48px; color: var(--ink-soft); font-size: 11px; line-height: 1.5; }
+    .stay-cost { display: flex; justify-content: space-between; align-items: end; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; }
+    .stay-cost strong { color: var(--accent); font: 900 22px/1 "Baskerville", serif; }
+    .stay-cost small { display: block; color: var(--ink-soft); font-size: 9px; margin-top: 4px; }
+    .stay-action { color: var(--blue); font-size: 11px; font-weight: 900; text-decoration: none; }
+    .stay-notice { margin-top: 14px; border: 2px dashed var(--blue); border-radius: 8px; padding: 9px 11px; color: var(--ink-soft); background: rgba(255,255,255,.55); font-size: 11px; line-height: 1.5; }
+    .calendar { border: 3px solid var(--ink); background: var(--blue); box-shadow: 7px 8px 0 var(--ink); transform: rotate(1deg); }
+    .calendar-cell.best { background: var(--sun); color: var(--ink); }.calendar-cell.best .calendar-date { color: var(--ink); }
+    footer { border-top: 2px solid var(--ink); }
+    dialog { border: 3px solid var(--ink); box-shadow: 8px 9px 0 var(--ink); }
+    @media (max-width: 820px) { .hero { grid-template-columns: 1fr; }.passport-collage { min-height: 330px; max-width: 510px; width: 100%; margin: 0 auto; }.stay-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 580px) {
+      .hero { padding-top: 30px; }.passport-collage { min-height: 275px; }.postcard { width: 155px; min-height: 205px; padding: 12px; }.postcard-icon { font-size: 48px; }.postcard-code { font-size: 31px; }.round-stamp { width: 82px; height: 82px; font-size: 10px; }
+      .mode-tab[aria-selected="true"] { transform: translateY(-6px); }.ticket:nth-child(n) { transform: none; }.ticket-price { border-left: 0; border-top: 2px dashed var(--ink); border-radius: 0 0 10px 10px; }.ticket-buttons { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; margin: 0 0 0 10px; }.refresh-button, .stay-button { width: 96px; }.stay-head { flex-direction: column; }.stay-grid { grid-template-columns: 1fr; }.stay-card:nth-child(n) { transform: none; }.stay-visual { height: 120px; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <header>
-      <div class="brand" aria-label="低价罗盘">
+      <div class="brand" aria-label="Gina的低价护照">
         <span class="brand-mark" aria-hidden="true"></span>
-        <span><span class="brand-name">低价罗盘</span><span class="brand-sub">LOW FARE COMPASS</span></span>
+        <span><span class="brand-name">Gina的低价护照</span><span class="brand-sub">GINA'S LOW FARE PASSPORT</span></span>
       </div>
       <button class="icon-button" id="settingsButton" type="button">⚙ 接口设置</button>
     </header>
@@ -176,11 +267,16 @@
     <main>
       <section class="hero">
         <div>
-          <span class="eyebrow">从预算出发，而不是从目的地出发</span>
-          <h1>让价格决定，<br>下一次<em>飞哪里</em>。</h1>
-          <p>固定日期找便宜目的地，时间自由找近期低价，目标明确就找最省钱的往返组合。</p>
+          <span class="eyebrow">Collect fares · collect stories</span>
+          <h1>低价起飞，<br>住进<em>当地生活</em>。</h1>
+          <p>先找到便宜机票，再配上有当地味道的住宿。每一次低价出发，都是护照里值得收藏的一页。</p>
+          <div class="hero-note">参考价不是付款价；住宿优先匹配真实可订结果，Airbnb 作为同日期特色民宿补充入口。</div>
         </div>
-        <div class="hero-note">所有价格均标注数据来源和更新时间。参考价不是付款价；选中行程后会先尝试实时复价。</div>
+        <div class="passport-collage" aria-hidden="true">
+          <div class="postcard one"><span class="postcard-icon">✈️</span><div class="postcard-copy"><div class="postcard-code">¥917</div><div class="postcard-label">一张低价往返票</div></div></div>
+          <div class="postcard two"><span class="postcard-icon">🏡</span><div class="postcard-copy"><div class="postcard-code">STAY</div><div class="postcard-label">一晚当地生活</div></div></div>
+          <div class="round-stamp">READY<br>TO<br>WANDER</div>
+        </div>
       </section>
 
       <section aria-label="低价机票搜索">
@@ -251,7 +347,7 @@
     </main>
 
     <footer>
-      <span>价格仅供规划参考，以供应商最终页面为准。本站不出票、不收款。</span>
+      <span>机票和住宿价格仅供规划参考，以供应商最终页面为准。本站不出票、不收款。</span>
       <span>覆盖范围取决于已配置的数据源；不抓取第三方售票网页。</span>
     </footer>
   </div>
@@ -265,7 +361,7 @@
       <div class="dialog-head"><div><span class="eyebrow">Connection</span><h2>接口设置</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div>
       <label for="apiBase">Cloudflare Worker 地址</label>
       <input id="apiBase" name="apiBase" type="url" placeholder="https://lowfare-compass-api.yourname.workers.dev">
-      <p class="dialog-note">留空时使用明确标记的本地演示数据。API 密钥只配置到 Worker Secrets，绝不能粘贴在这里。</p>
+      <p class="dialog-note">Netlify 线上版会自动连接同域接口；留空且没有线上接口时使用明确标记的演示数据。API 密钥只配置到服务端环境变量，绝不能粘贴在这里。</p>
       <div class="dialog-actions"><button class="primary-button" value="save">保存设置</button></div>
     </form>
   </dialog>
@@ -274,10 +370,19 @@
   <script>
     const AIRPORT_NAMES = { BJS:"北京",SHA:"上海",CAN:"广州",SZX:"深圳",CSX:"长沙",CTU:"成都",CKG:"重庆",HGH:"杭州",NKG:"南京",WUH:"武汉",XIY:"西安",XMN:"厦门",KMG:"昆明",TAO:"青岛",HAK:"海口",SYX:"三亚",HKG:"香港",MFM:"澳门",TPE:"台北",TYO:"东京",OSA:"大阪",SEL:"首尔",BKK:"曼谷",SIN:"新加坡",KUL:"吉隆坡",PAR:"巴黎",LON:"伦敦",SYD:"悉尼",NYC:"纽约",LAX:"洛杉矶" };
     const DEMO_DESTINATIONS = [["TAO",680],["XMN",760],["CKG",820],["XIY",850],["KMG",980],["HAK",1080],["HKG",1280],["OSA",1680],["BKK",1780],["SEL",1880],["SIN",2380],["PAR",4280]];
+    const DEMO_STAYS = {
+      TYO:[["省钱首选","昭和街区小旅馆","浅草 / 上野","🏮","交通方便，适合把预算留给城市体验。"],["当地特色","传统町屋风格住宿","谷中 / 神乐坂","🏯","木格窗、榻榻米与老街氛围，是东京生活感最强的一晚。"],["综合最优","温泉旅馆体验","近郊温泉区","♨️","价格、日式体验与休息质量更平衡。"]],
+      OSA:[["省钱首选","商店街旁小旅馆","天满 / 新世界","🏮","靠近餐饮和地铁，控制住宿总价。"],["当地特色","大阪町屋民宿","空堀 / 中崎町","🏯","住进保留老屋与巷弄气息的街区。"],["综合最优","温泉主题酒店","难波周边","♨️","兼顾交通、泡汤和夜间美食。"]],
+      SEL:[["省钱首选","地铁旁设计旅舍","弘大 / 钟路","🚇","交通便利，适合短途城市旅行。"],["当地特色","韩屋住宿","北村 / 西村","🛖","院落、木结构和地暖体验最有首尔特色。"],["综合最优","老街精品酒店","益善洞","🌙","传统街区氛围与现代舒适度兼具。"]],
+      BKK:[["省钱首选","旧城精品旅舍","拍那空","🛺","靠近寺庙与河岸，价格友好。"],["当地特色","泰式河畔老宅","湄南河沿岸","🪷","木屋、庭院和水上生活是曼谷代表体验。"],["综合最优","绿意庭院酒店","阿里 / 沙吞","🌴","闹中取静，设计感与交通更均衡。"]],
+      SIN:[["省钱首选","胶囊设计旅店","牛车水","🛏️","在高住宿成本城市控制总预算。"],["当地特色","店屋改造精品酒店","加东 / 小印度","🌈","彩色立面与南洋文化最具新加坡辨识度。"],["综合最优","传统街区设计酒店","甘榜格南","🕌","步行体验、餐饮和城市交通兼顾。"]],
+      default:[["省钱首选","交通枢纽旁高分住宿","公共交通便利区","🎒","控制总价并减少往返机场的时间成本。"],["当地特色","传统建筑改造住宿","历史街区","🏡","优先体验当地建筑、街区与生活方式。"],["综合最优","本地设计精品酒店","市中心外缘","✨","兼顾价格、评分、位置与特色。"]]
+    };
     const state = { mode: "fixed", origins: JSON.parse(localStorage.getItem("lowfare.origins") || '["CSX"]'), offers: [], demo: false };
     const $ = (selector, root = document) => root.querySelector(selector);
     const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-    const apiBase = () => (localStorage.getItem("lowfare.apiBase") || "").replace(/\/$/, "");
+    const defaultApiBase = location.protocol === "https:" && !location.hostname.endsWith("github.io") ? location.origin : "";
+    const apiBase = () => (localStorage.getItem("lowfare.apiBase") || defaultApiBase).replace(/\/$/, "");
 
     setDefaultDates();
     setupTabs();
@@ -363,7 +468,7 @@
     }
 
     async function search(body, mode) {
-      if (!apiBase()) return { data: makeDemoOffers(body, mode), meta: { demo: true, searchedAt: new Date().toISOString(), warnings: ["尚未连接 Cloudflare Worker，当前显示演示数据，不能用于购票。"] } };
+      if (!apiBase()) return { data: makeDemoOffers(body, mode), meta: { demo: true, searchedAt: new Date().toISOString(), warnings: ["尚未连接线上接口，当前显示演示数据，不能用于购票。"] } };
       const paths = { fixed:"fixed-dates", flexible:"flexible", destination:"destination" };
       const response = await fetch(`${apiBase()}/api/search/${paths[mode]}`, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify(body) });
       const payload = await response.json().catch(() => ({}));
@@ -407,10 +512,62 @@
     function makeTicket(offer, index) {
       const article = document.createElement("article"); article.className = "ticket"; article.style.setProperty("--i", index); article.dataset.id = offer.id;
       const statusLabel = offer.status === "live" ? "实时价" : offer.status === "demo" ? "演示数据" : "近期参考价";
-      article.innerHTML = `<div class="ticket-main"><div><div class="place-code">${escapeHTML(offer.origin)}</div><div class="place-name">${escapeHTML(offer.originName || AIRPORT_NAMES[offer.origin] || offer.origin)}</div></div><div class="route"><span>${offer.stops === 0 ? "直飞" : `最多 ${offer.stops} 次中转`}</span><div class="route-line"></div><span>${offer.stayDays} 天</span></div><div style="text-align:right"><div class="place-code">${escapeHTML(offer.destination)}</div><div class="place-name">${escapeHTML(offer.destinationName || AIRPORT_NAMES[offer.destination] || offer.destination)}</div></div><div class="dates"><span>去程 ${formatDate(offer.departDate)}</span><span>返程 ${formatDate(offer.returnDate)}</span><span>${escapeHTML(offer.provider)} · ${statusLabel}</span><span>行李/税费：${escapeHTML(offer.baggage || "待供应商确认")}</span>${offer.otherSourceCount ? `<span>另有 ${offer.otherSourceCount} 个来源</span>` : ""}</div></div><div class="ticket-price"><span class="price-label">往返 / 1 人</span><div class="price"><small>¥</small>${Number(offer.priceCny).toLocaleString("zh-CN")}</div><div class="history" data-history>本站记录查询中…</div><button class="refresh-button" type="button">${offer.status === "demo" ? "演示结果" : "复价并前往"}</button></div>`;
+      article.innerHTML = `<div class="ticket-main"><div><div class="place-code">${escapeHTML(offer.origin)}</div><div class="place-name">${escapeHTML(offer.originName || AIRPORT_NAMES[offer.origin] || offer.origin)}</div></div><div class="route"><span>${offer.stops === 0 ? "直飞" : `最多 ${offer.stops} 次中转`}</span><div class="route-line"></div><span>${offer.stayDays} 天</span></div><div style="text-align:right"><div class="place-code">${escapeHTML(offer.destination)}</div><div class="place-name">${escapeHTML(offer.destinationName || AIRPORT_NAMES[offer.destination] || offer.destination)}</div></div><div class="dates"><span>去程 ${formatDate(offer.departDate)}</span><span>返程 ${formatDate(offer.returnDate)}</span><span>${escapeHTML(offer.provider)} · ${statusLabel}</span><span>行李/税费：${escapeHTML(offer.baggage || "待供应商确认")}</span>${offer.otherSourceCount ? `<span>另有 ${offer.otherSourceCount} 个来源</span>` : ""}</div></div><div class="ticket-price"><span class="price-label">往返 / 1 人</span><div class="price"><small>¥</small>${Number(offer.priceCny).toLocaleString("zh-CN")}</div><div class="history" data-history>本站记录查询中…</div><div class="ticket-buttons"><button class="stay-button" type="button">＋ 配特色住宿</button><button class="refresh-button" type="button">${offer.status === "demo" ? "演示结果" : "实时复价并购买 ↗"}</button></div></div><div class="stay-drawer" aria-live="polite"></div>`;
       $(".refresh-button", article).addEventListener("click", () => refreshAndOpen(offer, article));
+      $(".stay-button", article).addEventListener("click", () => toggleStays(offer, article));
       loadHistory(offer, $("[data-history]", article));
       return article;
+    }
+
+    async function toggleStays(offer, article) {
+      const drawer = $(".stay-drawer", article); const button = $(".stay-button", article);
+      if (drawer.dataset.loaded === "true") { drawer.classList.toggle("open"); button.textContent = drawer.classList.contains("open") ? "－ 收起住宿" : "＋ 配特色住宿"; return; }
+      button.disabled = true; button.innerHTML = '<span class="spinner"></span>匹配中';
+      try {
+        const payload = await searchStays(offer);
+        renderStays(drawer, offer, payload);
+        drawer.dataset.loaded = "true"; drawer.classList.add("open"); button.textContent = "－ 收起住宿";
+      } catch (error) { toast(error.message || "住宿匹配失败"); button.textContent = "重试住宿"; }
+      finally { button.disabled = false; }
+    }
+
+    async function searchStays(offer) {
+      const maxNightly = Math.min(1800, Math.max(500, Math.round(offer.priceCny * .45)));
+      if (!apiBase()) return makeDemoStays(offer, maxNightly);
+      const response = await fetch(`${apiBase()}/api/stays/search`, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ offer, guests:2, rooms:1, maxNightly }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || "住宿接口暂不可用");
+      return payload;
+    }
+
+    function makeDemoStays(offer, maxNightly) {
+      const profile = DEMO_STAYS[offer.destination] || DEMO_STAYS.default; const nights = Math.max(1, offer.stayDays || daysBetween(offer.departDate, offer.returnDate));
+      const base = Math.min(maxNightly, Math.max(260, Math.round(offer.priceCny * .22)));
+      const data = profile.map(([category,name,neighborhood,icon,reason], index) => {
+        const pricePerNightCny = Math.round(base * [.72,1.08,.92][index]); const priceTotalCny = pricePerNightCny * nights;
+        return { id:`demo-stay-${offer.destination}-${index}`, category,name,neighborhood,icon,reason,pricePerNightCny,priceTotalCny,tripTotalCny:offer.priceCny + Math.round(priceTotalCny / 2),nights,guests:2,rating:null,reviewCount:null,imageUrl:"",provider:"特色住宿类型示例",status:"demo",deepLink:"" };
+      });
+      return { data, airbnbUrl:airbnbSearchUrl(offer), meta:{ demo:true, notice:"以下为当地特色住宿类型与预算示例，不代表真实房源或可订价格。配置 Booking.com Demand API 后显示真实住宿。" } };
+    }
+
+    function renderStays(drawer, offer, payload) {
+      const stays = payload.data || []; const airbnb = payload.airbnbUrl || airbnbSearchUrl(offer);
+      drawer.innerHTML = `<div class="stay-head"><div><h3>${escapeHTML(offer.destinationName || AIRPORT_NAMES[offer.destination] || offer.destination)} · 住进当地生活</h3><p>${offer.stayDays} 晚 · 默认按 2 人 1 间计算 · 机票与住宿总价按每人估算</p></div><a class="airbnb-link" href="${escapeHTML(airbnb)}" target="_blank" rel="noopener noreferrer">Airbnb 同日期民宿 ↗</a></div><div class="stay-grid"></div><div class="stay-notice">${escapeHTML(payload.meta?.notice || "住宿价格和可订状态可能变化，请在供应商页面复核。")}</div>`;
+      const grid = $(".stay-grid", drawer);
+      stays.forEach((stay) => {
+        const card = document.createElement("article"); card.className = "stay-card";
+        const visual = stay.imageUrl ? `<img src="${escapeHTML(stay.imageUrl)}" alt="${escapeHTML(stay.name)}" loading="lazy" referrerpolicy="no-referrer">` : `<span class="stay-icon" aria-hidden="true">${escapeHTML(stay.icon || "🏡")}</span>`;
+        const rating = stay.rating ? ` · ${Number(stay.rating).toFixed(1)} 分${stay.reviewCount ? ` / ${stay.reviewCount} 条` : ""}` : "";
+        const action = stay.deepLink ? `<a class="stay-action" href="${escapeHTML(stay.deepLink)}" target="_blank" rel="noopener noreferrer">查看真实房价 ↗</a>` : `<span class="stay-action">类型示例</span>`;
+        card.innerHTML = `<div class="stay-visual">${visual}<span class="stay-category">${escapeHTML(stay.category || "住宿推荐")}</span></div><div class="stay-card-body"><h4 class="stay-name">${escapeHTML(stay.name)}</h4><div class="stay-location">${escapeHTML(stay.neighborhood || "目的地城区")} · ${escapeHTML(stay.provider || "住宿来源")}${rating}</div><div class="stay-reason">${escapeHTML(stay.reason || "按价格、位置与体验综合推荐。")}</div><div class="stay-cost"><div><strong>¥${Number(stay.pricePerNightCny || 0).toLocaleString("zh-CN")}</strong><small>每晚 · ${stay.nights} 晚共 ¥${Number(stay.priceTotalCny || 0).toLocaleString("zh-CN")}</small><small>机票＋住宿约 ¥${Number(stay.tripTotalCny || 0).toLocaleString("zh-CN")} / 人</small></div>${action}</div></div>`;
+        grid.append(card);
+      });
+    }
+
+    function airbnbSearchUrl(offer) {
+      const place = encodeURIComponent(offer.destinationName || AIRPORT_NAMES[offer.destination] || offer.destination);
+      const params = new URLSearchParams({ checkin:offer.departDate, checkout:offer.returnDate, adults:"2", source:"structured_search_input_header", locale:"zh" }); params.append("refinement_paths[]", "/homes");
+      return `https://www.airbnb.com/s/${place}/homes?${params}`;
     }
 
     async function loadHistory(offer, target) {

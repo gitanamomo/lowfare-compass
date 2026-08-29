@@ -25,3 +25,10 @@ CREATE TABLE IF NOT EXISTS search_cache (
 CREATE INDEX IF NOT EXISTS idx_search_cache_expiry
   ON search_cache(expires_at);
 
+CREATE TABLE IF NOT EXISTS api_usage (
+  usage_key TEXT PRIMARY KEY,
+  usage_day TEXT NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_usage_day ON api_usage(usage_day);
