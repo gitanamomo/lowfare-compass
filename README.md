@@ -2,10 +2,11 @@
 
 一个按预算、日期或目的地寻找低价往返机票并匹配特色住宿的轻量网页。前端是纯 HTML/CSS/JS，生产环境使用 Netlify CDN 与 Functions；供应商密钥只保存在服务端环境变量中。Cloudflare Worker + D1 保留为可选部署方案。
 
-- 在线体验：https://gitanamomo.github.io/lowfare-compass/
+- 正式网站：https://gina-lowfare-passport.netlify.app/
+- 静态演示：https://gitanamomo.github.io/lowfare-compass/
 - GitHub 仓库：https://github.com/gitanamomo/lowfare-compass
 
-> GitHub Pages 地址用于静态演示；Netlify 正式地址会在首次生产部署后补充。
+> GitHub Pages 地址用于静态演示；Netlify 正式网站通过同域 Function 搜索实时数据。
 
 > 价格仅用于旅行规划。程序不出票、不收款，购买前必须到供应商页面确认最终价格、税费和行李规则。
 
@@ -178,7 +179,7 @@ npm run validate
 - 补充本地运行、数据源配置、测试和部署说明。
 - 创建 GitHub 仓库并启用 GitHub Pages。
 
-### 0.2.0 · 2026-08-29（待发布）
+### 0.2.0 · 2026-08-30
 
 - 将界面重构为彩色护照拼贴风格。
 - 增加 Booking.com 真实住宿适配、三类特色住宿推荐和旅行总价估算。
@@ -186,3 +187,4 @@ npm run validate
 - 品牌名称更新为“Gina的低价护照”。
 - 增加 Amadeus 实时酒店价格适配、购买平台跳转、来源白名单和每日查询限额。
 - 增加 Netlify Function、同域 API、每 IP 限流、安全响应头和 GitHub 持续部署配置。
+- 发布到 `gina-lowfare-passport.netlify.app`，保留 GitHub Pages 作为静态演示。
