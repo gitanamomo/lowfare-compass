@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-// 一键 zip 部署到 Netlify（本项目站点未连 GitHub CI，用此脚本发布）。
+// 一键部署到 Netlify（本项目站点未连 GitHub CI，用此脚本发布）。
 // 用法：NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs
-// 可选环境变量：NETLIFY_SITE_ID（默认为本站 51be0f97-ddbb-4f14-8e1b-74d0d33c6f2c）
+// 可选环境变量：NETLIFY_SITE_ID（默认为本站 9dbe994e-a7d8-4703-a6a9-cecdbcfc3d4d，lowfare-compass）
+//
+// ⚠️ 2026-09-02 教训：裸 zip API（POST /sites/{id}/deploys）**不会注册 Function**——
+// 线上首页能开但 /api/* 全部 404。必须走 Netlify CLI（本地 esbuild 打包 Function 后推送）。
+// 本脚本要求环境里已装 netlify-cli（本项目隔离 workspace 已装：
+// /Users/gitana/.workbuddy/binaries/node/workspace/node_modules/netlify-cli）。
 
-import { mkdtemp, cp, mkdir, rm, readFile } from "node:fs/promises";
+import { mkdtemp, cp, mkdir, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,8 +17,8 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const SITE_ID = process.env.NETLIFY_SITE_ID || "51be0f97-ddbb-4f14-8e1b-74d0d33c6f2c";
-const API = "https://api.netlify.com/api/v1";
+const SITE_ID = process.env.NETLIFY_SITE_ID || "9dbe994e-a7d8-4703-a6a9-cecdbcfc3d4d";
+const HEALTH_URL = process.env.HEALTH_URL || "https://lowfare-compass.netlify.app/api/health";
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const token = process.env.NETLIFY_TOKEN;
@@ -23,64 +28,57 @@ if (!token) {
   process.exit(1);
 }
 
-function api(path, options = {}) {
-  return fetch(`${API}${path}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
-  }).then(async (response) => {
-    const text = await response.text();
-    const payload = text ? JSON.parse(text) : {};
-    if (!response.ok) throw new Error(`Netlify API ${response.status}: ${payload.message || text.slice(0, 200)}`);
-    return payload;
-  });
+// 定位 netlify-cli 的 bin/run.js
+const CLI_CANDIDATES = [
+  process.env.NETLIFY_CLI_PATH,
+  "/Users/gitana/.workbuddy/binaries/node/workspace/node_modules/netlify-cli/bin/run.js"
+].filter(Boolean);
+
+async function findCli() {
+  for (const p of CLI_CANDIDATES) {
+    try { await access(p); return p; } catch { /* 继续找 */ }
+  }
+  console.error("找不到 netlify-cli。请先安装到隔离 workspace：");
+  console.error("  cd /Users/gitana/.workbuddy/binaries/node/workspace && npm install netlify-cli");
+  process.exit(1);
 }
 
-async function buildZip() {
+async function main() {
+  const cli = await findCli();
+  const node = process.execPath;
+
+  // 组装部署目录：前端 + netlify.toml + worker.js（api.mjs 相对引用它）+ Function 源码
   const stage = await mkdtemp(join(tmpdir(), "lowfare-deploy-"));
   await mkdir(join(stage, "netlify/functions"), { recursive: true });
   await cp(join(ROOT, "index.html"), join(stage, "index.html"));
   await cp(join(ROOT, "netlify.toml"), join(stage, "netlify.toml"));
+  await cp(join(ROOT, "worker.js"), join(stage, "worker.js"));
   await cp(join(ROOT, "netlify/functions/api.mjs"), join(stage, "netlify/functions/api.mjs"));
-  const zipPath = join(stage, "deploy.zip");
-  await execFileAsync("zip", ["-qr", zipPath, "."], { cwd: stage });
-  return { zipPath, stage };
-}
+  console.log(`部署目录就绪：${stage}`);
 
-async function main() {
-  const { zipPath, stage } = await buildZip();
   try {
-    const zip = await readFile(zipPath);
-    console.log(`打包完成：${zip.length} 字节（index.html + netlify.toml + netlify/functions/api.mjs）`);
-    const deploy = await api(`/sites/${SITE_ID}/deploys`, {
-      method: "POST",
-      headers: { "Content-Type": "application/zip" },
-      body: zip
+    const { stdout } = await execFileAsync(node, [
+      cli, "deploy",
+      "--site", SITE_ID,
+      "--dir", stage,
+      "--functions", join(stage, "netlify/functions"),
+      "--prod"
+    ], {
+      env: { ...process.env, NETLIFY_AUTH_TOKEN: token },
+      maxBuffer: 10 * 1024 * 1024
     });
-    console.log(`部署已创建：${deploy.id}，等待上线…`);
+    const lines = stdout.split("\n").filter((l) => /Deploy is live|Production URL|Deploy complete|Error/i.test(l));
+    console.log(lines.join("\n") || stdout.slice(-400));
 
-    const deadline = Date.now() + 5 * 60 * 1000;
-    let state = deploy.state;
-    while (!["ready", "error", "deadline"].includes(state)) {
-      if (Date.now() > deadline) { state = "deadline"; break; }
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      const current = await api(`/deploys/${deploy.id}`);
-      state = current.state;
-      console.log(`  状态：${state}`);
-    }
-
-    if (state !== "ready") {
-      console.error(`部署未成功（${state}）。常见原因：团队计算额度用超（去 Netlify 后台 usage 页确认）。`);
-      process.exit(2);
-    }
-
-    console.log("部署成功 ✅  正在验收 /api/health …");
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    const health = await fetch("https://gina-lowfare-passport.netlify.app/api/health").then((r) => r.json());
+    console.log("正在验收 /api/health …");
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const health = await fetch(HEALTH_URL).then((r) => r.json());
     const travelpayouts = health.providers?.find((p) => p.id === "travelpayouts");
     console.log(`health.ok = ${health.ok}`);
     for (const p of health.providers || []) console.log(`  ${p.id}: configured=${p.configured}（${p.capability}）`);
+    if (!health.ok) { console.error("⚠️ /api/health 返回异常"); process.exit(2); }
     if (!travelpayouts?.configured) {
-      console.error("⚠️ travelpayouts 未生效：请检查 Netlify 后台环境变量 TRAVELPAYOUTS_TOKEN 是否已配置。");
+      console.error("⚠️ travelpayouts 未生效：请到 Netlify 后台 Site configuration → Environment variables 手动加 TRAVELPAYOUTS_TOKEN（免费计划 API 写不了 env），加完重新跑本脚本。");
       process.exit(3);
     }
     console.log("验收通过 ✅");

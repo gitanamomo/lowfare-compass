@@ -4,11 +4,13 @@
 
 ## P0（阻塞上线）
 
-- [ ] **等待 Netlify 团队额度重置后重新部署**（9/2 实测仍被拦：「Account credit usage exceeded」，额度不按自然月重置，按账户计费周期日）
-  - 待用户在 https://app.netlify.com/teams/gitanamomo/usage 查看重置日期（注意 slug 是 gitanamomo）
-  - 部署方式：`NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs`（0.2.1 已内置一键脚本）
-  - 部署后验收：脚本自动检查 `/api/health` → `travelpayouts.configured: true`
-  - 环境变量 `TRAVELPAYOUTS_TOKEN` 已由用户在 Netlify UI 手动配置（免费计划 API 写不了 env）
+- [x] **站点迁移到 gitanamo 团队并重新部署**（2026-09-02 完成）
+  - 原因：旧站（Gitana 团队，gina-lowfare-passport）额度用超且不按自然月重置；用户提供了 gitanamo 团队（另一账号）的新 token
+  - 新站：**https://lowfare-compass.netlify.app**（siteId `9dbe994e-a7d8-4703-a6a9-cecdbcfc3d4d`）
+  - 教训：裸 zip API 不注册 Function（`/api/*` 全 404），部署脚本已改为 netlify-cli 本地打包（0.2.2）
+- [ ] **在 Netlify UI 给新站配环境变量**：https://app.netlify.com/projects/lowfare-compass/configuration/env
+  - Key：`TRAVELPAYOUTS_TOKEN`，Value：`7d59…c88`（免费计划 API 写不了 env，需手动）
+  - 配好后跑 `NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs` 重部署并验收 `travelpayouts.configured: true`
 - [x] **Amadeus 数据源决策**（2026-09-02 定案：**方案 A**，仅用 Travelpayouts）
   - 已落地：worker.js 降级文案与 providerStatus 说明已更新；Amadeus/Booking 适配保留备用
   - 复价行为：无 Amadeus 时 `/api/refresh` 返回 indicative + 提示去供应商页面确认（原有逻辑，无需改动）
@@ -28,7 +30,7 @@
 
 ## P3（可选 / 收尾）
 
-- [ ] 验收完成后提醒用户**撤销 Netlify token**（nfp_…6011）
+- [ ] 验收完成后提醒用户**撤销本次用的 Netlify token**（nfp_…9de6，gitanamo 团队）；旧 token nfp_…6011（Gitana 团队）也建议撤销
 - [ ] Booking.com Demand API 合作申请（当前未申请）
 - [ ] D1 价格历史功能在 Netlify 路径下无数据库支撑，属空转（Cloudflare 备用方案才有），考虑在 UI 隐藏或说明
 

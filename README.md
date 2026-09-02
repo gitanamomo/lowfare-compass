@@ -33,7 +33,7 @@ travel/
 ├── schema.sql              # D1 价格历史和搜索缓存表
 ├── wrangler.jsonc          # Worker 与 D1 配置模板
 ├── package.json            # 测试、本地运行和部署命令
-├── scripts/deploy-netlify.mjs # 一键 zip 部署到 Netlify（读取 NETLIFY_TOKEN 环境变量）
+├── scripts/deploy-netlify.mjs # 一键 CLI 部署到 Netlify（读取 NETLIFY_TOKEN 环境变量）
 ├── scripts/validate.mjs    # 静态结构及密钥泄露检查
 └── test/worker.test.mjs    # 参数、排序、去重、演示模式测试
 ```
@@ -137,16 +137,18 @@ npm run validate
 
 ### Netlify（正式方案）
 
-> 实际部署方式为**本地 zip 部署**（站点未连接 GitHub 持续部署，push 到 main 不会自动上线）。
+> 实际部署方式为**本地 CLI 部署**（站点未连接 GitHub 持续部署，push 到 main 不会自动上线）。
+> ⚠️ 2026-09-02 实测：裸 zip API（`POST /sites/{id}/deploys`）不会注册 Function（首页能开但 `/api/*` 全 404），必须走 Netlify CLI。
+> 正式站点：**https://lowfare-compass.netlify.app**（gitanamo 团队，siteId `9dbe994e-a7d8-4703-a6a9-cecdbcfc3d4d`；旧站 gina-lowfare-passport 位于 Gitana 团队，因团队额度用超已弃用）。
 
-1. 在 Netlify 后台 **Site configuration → Environment variables** 配置密钥（免费计划无法通过 API 写入环境变量）。
-2. 一键部署（读取 `NETLIFY_TOKEN` 环境变量，可在 Netlify 后台 User settings → Applications 生成）：
+1. 在 Netlify 后台 **Site configuration → Environment variables** 配置 `TRAVELPAYOUTS_TOKEN`（免费计划无法通过 API 写入环境变量）。
+2. 一键部署（读取 `NETLIFY_TOKEN` 环境变量，可在 Netlify 后台 User settings → Applications 生成；脚本自动调用 netlify-cli 打包并注册 Function）：
 
    ```bash
    NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs
    ```
 
-3. 验收：`curl https://gina-lowfare-passport.netlify.app/api/health` 应显示 `travelpayouts.configured: true`；再检查真实搜索、住宿匹配和购买跳转。
+3. 验收：`curl https://lowfare-compass.netlify.app/api/health` 应显示 `travelpayouts.configured: true`；再检查真实搜索、住宿匹配和购买跳转。
 
 ### Cloudflare Worker 和 D1（备用）
 
@@ -199,3 +201,9 @@ npm run validate
 - 修正文档漂移：实际部署方式为本地 zip 部署（站点未连 GitHub 持续部署），部署章节已重写。
 - 记录 Amadeus 自服务关停（2026-07-17）的影响：Travelpayouts 成为唯一生效的真实数据源；降级提示文案与数据源状态说明已同步更新。
 - 新增 `scripts/deploy-netlify.mjs` 一键部署脚本；部署细节与待办见 `TODO.md`。
+
+### 0.2.2 · 2026-09-02
+
+- 正式站点迁移至 gitanamo 团队的新站 `lowfare-compass.netlify.app`（原 Gitana 团队站点因团队计算额度用超无法再部署）。
+- 修复部署脚本关键缺陷：裸 zip API 不注册 Function（`/api/*` 全 404），改为调用 netlify-cli 本地打包部署，站点 ID 与验收地址同步更新。
+- 部署章节改写为实测验证的 CLI 部署流程。
