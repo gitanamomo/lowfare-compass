@@ -283,7 +283,7 @@ function demoStayResult(offer, options, airbnbUrl) {
     const priceTotalCny = pricePerNightCny * nights;
     return { id: `demo-stay-${offer.destination}-${index}`, name, neighborhood, icon, category, reason, pricePerNightCny, priceTotalCny, tripTotalCny: offer.priceCny + Math.round(priceTotalCny / Math.max(1, options.guests)), nights, guests: options.guests, rating: null, reviewCount: null, imageUrl: "", provider: "特色住宿类型示例", status: "demo", deepLink: "" };
   });
-  return { data, airbnbUrl, meta: { demo: true, cached: false, provider: "住宿示例", searchedAt: new Date().toISOString(), notice: "尚未配置 Booking.com Demand API，以下为当地特色住宿类型与预算示例，不代表真实房源或可订价格。" } };
+  return { data, airbnbUrl, meta: { demo: true, cached: false, provider: "住宿示例", searchedAt: new Date().toISOString(), notice: "未接入实时住宿接口（Amadeus 自服务已于 2026 年 7 月关停，Booking.com 需合作伙伴权限），以下为当地特色住宿类型与预算示例，不代表真实房源或可订价格。" } };
 }
 
 async function bookingCall(path, body, env) {
@@ -554,8 +554,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
 function providerStatus(env) {
   return [
     { id: "travelpayouts", configured: Boolean(env.TRAVELPAYOUTS_TOKEN), capability: "近期参考价" },
-    { id: "amadeus", configured: Boolean(env.AMADEUS_CLIENT_ID && env.AMADEUS_CLIENT_SECRET), capability: "机票探索、实时复价与实时酒店" },
-    { id: "booking", configured: Boolean(env.BOOKING_API_KEY && env.BOOKING_AFFILIATE_ID), capability: "实时住宿与跳转" },
+    { id: "amadeus", configured: Boolean(env.AMADEUS_CLIENT_ID && env.AMADEUS_CLIENT_SECRET), capability: "机票探索、实时复价与实时酒店（官方自服务于 2026-07-17 关停，适配保留备用）" },
+    { id: "booking", configured: Boolean(env.BOOKING_API_KEY && env.BOOKING_AFFILIATE_ID), capability: "实时住宿与跳转（需合作权限，未申请）" },
     { id: "skyscanner", configured: false, capability: "预留适配位，需合作审核" }
   ];
 }

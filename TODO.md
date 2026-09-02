@@ -1,28 +1,30 @@
 # TODO — Gina的低价护照（lowfare-compass）
 
-> 更新：2026-08-30。跨会话续作用的待办清单，做完一项勾一项。
+> 更新：2026-09-02。跨会话续作用的待办清单，做完一项勾一项。
 
 ## P0（阻塞上线）
 
-- [ ] **等待 Netlify 团队额度重置后重新部署**（团队 5 站共享额度已用超，预计 9/1 重置）
-  - 部署方式：本地 zip 部署 `POST /api/v1/sites/51be0f97-ddbb-4f14-8e1b-74d0d33c6f2c/deploys`，包内含 `index.html` + `netlify.toml` + `netlify/functions/api.mjs`（本次已在 /tmp/netlify-deploy.zip 验证过打包结构）
-  - 部署后验收：`curl https://gina-lowfare-passport.netlify.app/api/health` → `travelpayouts.configured: true`
+- [ ] **等待 Netlify 团队额度重置后重新部署**（9/2 实测仍被拦：「Account credit usage exceeded」，额度不按自然月重置，按账户计费周期日）
+  - 待用户在 https://app.netlify.com/teams/gitanamomo/usage 查看重置日期（注意 slug 是 gitanamomo）
+  - 部署方式：`NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs`（0.2.1 已内置一键脚本）
+  - 部署后验收：脚本自动检查 `/api/health` → `travelpayouts.configured: true`
   - 环境变量 `TRAVELPAYOUTS_TOKEN` 已由用户在 Netlify UI 手动配置（免费计划 API 写不了 env）
-- [ ] **Amadeus 数据源决策**（2026-07-17 Amadeus 自服务门户已关停，旧 key 失效、新注册暂停，详见下方「背景」）
-  - 方案 A：仅用 Travelpayouts（已可用），实时复价降级为提示用户去供应商页复核 —— 改动最小
-  - 方案 B：接入替代自服务 API（如 Duffel，NDC 直连 300+ 航司，需注册评估免费额度）
-  - 方案 C：仅做静态演示站
-  - ⚠️ 用户手里若有 Amadeus key，可先发来验证（预期已失效，验证只需 1 次调用）
+- [x] **Amadeus 数据源决策**（2026-09-02 定案：**方案 A**，仅用 Travelpayouts）
+  - 已落地：worker.js 降级文案与 providerStatus 说明已更新；Amadeus/Booking 适配保留备用
+  - 复价行为：无 Amadeus 时 `/api/refresh` 返回 indicative + 提示去供应商页面确认（原有逻辑，无需改动）
 
 ## P1
 
-- [ ] 若选方案 B：在 `worker.js` 新增供应商适配（参照现有 `searchAmadeus()` 结构，返回 `normalizeOffer()` 字段后加入 `searchAll()`），同步改测试
+- [ ] 若未来选方案 B（如 Duffel）：在 `worker.js` 新增供应商适配（参照现有适配结构，返回 `normalizeOffer()` 字段后加入 `searchAll()`），同步改测试
 - [ ] 重新部署后整站验收：三种搜索模式、住宿匹配、复价跳转、Safari + iPhone 尺寸
 
 ## P2（文档与仓库卫生）
 
-- [ ] **修 README 部署章节漂移**：实际是「本地 zip 部署」，非 GitHub 持续部署；「数据源配置」章节中 Amadeus 相关描述已过时（自服务关停）
-- [ ] 检查是否要把 Netlify 部署流程写成 `scripts/deploy-netlify.mjs`（避免每次手敲 curl）
+- [x] 修 README 部署章节漂移：已改为「本地 zip 部署」实际流程（0.2.1）
+- [x] 数据源配置章节 Amadeus 描述已更新（自服务关停说明）
+- [x] 新增 `scripts/deploy-netlify.mjs` 一键部署脚本 + `npm run deploy:netlify`
+- [x] `.gitignore` 增加 `.workbuddy/`（会话记忆目录不入库）
+- [ ] 检查 5 个站点谁在吃 Netlify 团队额度（用户更正：清醒回应真实地址为 sober-respond.netlify.app）
 
 ## P3（可选 / 收尾）
 

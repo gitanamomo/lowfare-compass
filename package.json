@@ -1,12 +1,13 @@
 {
   "name": "lowfare-compass",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test",
     "validate": "node scripts/validate.mjs",
     "build:netlify": "mkdir -p dist && cp index.html dist/index.html",
+    "deploy:netlify": "node scripts/deploy-netlify.mjs",
     "dev:frontend": "python3 -m http.server 5500 --bind 127.0.0.1",
     "dev:worker": "npx wrangler dev",
     "deploy:worker": "npx wrangler deploy"

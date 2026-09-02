@@ -15,8 +15,7 @@
 - 日期已定：按固定往返日期寻找预算内目的地。
 - 时间自由：按时间窗口、停留天数和预算寻找低价组合。
 - 目的地明确：整理最低价往返日期并显示日期价格板。
-- 住宿匹配：每个航班提供省钱首选、当地特色和综合最优三类住宿，并计算机票加住宿的人均总价。
-- 真实住宿默认使用与机票共用密钥的 Amadeus Hotels；若获得 Booking.com 合作权限，可升级为带图片和评分的结果。Airbnb 仅作为相同目的地和日期的补充搜索入口。
+- 住宿匹配：每个航班提供省钱首选、当地特色和综合最优三类住宿，并计算机票加住宿的人均总价。当前未接入实时住宿接口时展示明确标注的特色住宿类型示例；Airbnb 仅作为相同目的地和日期的补充搜索入口。
 - 最多三个出发城市，支持直飞或最多一次中转。
 - 明确区分供应商近期参考价、实时复价、演示数据和本站历史最低价。
 - 没有配置接口时自动使用明显标记的演示数据，演示结果不能跳转购买。
@@ -34,6 +33,7 @@ travel/
 ├── schema.sql              # D1 价格历史和搜索缓存表
 ├── wrangler.jsonc          # Worker 与 D1 配置模板
 ├── package.json            # 测试、本地运行和部署命令
+├── scripts/deploy-netlify.mjs # 一键 zip 部署到 Netlify（读取 NETLIFY_TOKEN 环境变量）
 ├── scripts/validate.mjs    # 静态结构及密钥泄露检查
 └── test/worker.test.mjs    # 参数、排序、去重、演示模式测试
 ```
@@ -69,13 +69,13 @@ npx wrangler dev
 供应商密钥禁止写进 `index.html`、`worker.js`、配置文件或 Git。Netlify 正式环境在项目的 **Environment variables** 中配置：
 
 ```dotenv
-AMADEUS_CLIENT_ID=your_client_id
-AMADEUS_CLIENT_SECRET=your_client_secret
-AMADEUS_BASE_URL=https://api.amadeus.com
+TRAVELPAYOUTS_TOKEN=your_token
 ALLOW_DEMO=true
 ```
 
-可选增加 `TRAVELPAYOUTS_TOKEN`、`BOOKING_API_KEY`、`BOOKING_AFFILIATE_ID` 和 `BOOKING_BASE_URL`。环境变量更新后需要重新部署。
+可选增加 `BOOKING_API_KEY`、`BOOKING_AFFILIATE_ID` 和 `BOOKING_BASE_URL`。环境变量更新后需要重新部署。
+
+> ⚠️ Amadeus 自服务开发者门户已于 2026-07-17 关停（官方公告），Self-Service key 全部失效且新注册暂停。`AMADEUS_*` 环境变量与相关适配仅作为历史保留，当前生效的数据源为 Travelpayouts（近期参考价）。
 
 Cloudflare 备用部署使用 Worker Secrets：
 
@@ -99,11 +99,10 @@ BOOKING_AFFILIATE_ID=your_affiliate_id
 BOOKING_BASE_URL=https://demandapi-sandbox.booking.com/3.2
 ```
 
-- Travelpayouts：提供近期缓存价格，结果标记为“近期参考价”。
-- Amadeus：用于探索价格和选中行程后的实时 Flight Offers 复价；官方数据覆盖并不完整。
+- Travelpayouts：提供近期缓存价格，结果标记为“近期参考价”；当前唯一生效的真实数据源。
+- Amadeus：官方自服务 API（含 Flight Offers、Amadeus Hotels）已于 2026-07-17 关停，key 失效、新注册暂停；相关适配函数保留，等待接入替代方案（如 Duffel）。
 - Skyscanner：已保留供应商适配位置，获得合作 API 审核后再接入 Indicative 和 Live Prices，不能在客户端直接调用。
-- Booking.com Demand API 3.2：搜索所选日期的真实可订住宿，补充详情图片并跳转供应商页面；需要合作伙伴 API token 和 Affiliate ID。
-- Amadeus Hotels：与机票共用同一套免费额度密钥；获取真实酒店名称、房型和实时可订价格，再跳转 Booking.com 按同日期复核购买。个人版优先采用这条路径。
+- Booking.com Demand API 3.2：搜索所选日期的真实可订住宿，补充详情图片并跳转供应商页面；需要合作伙伴 API token 和 Affiliate ID（未申请）。
 - Airbnb：只生成普通的同日期搜索入口，不调用未公开 API、不抓取网页，也不在本站声称其价格可订。
 - Netlify Function：线上默认使用同域 `/api/*`，每个 IP 每分钟最多 30 个请求；免费计划达到硬上限后停止服务，不会自动产生超额费用。
 - Cloudflare Worker：只接受配置的 GitHub Pages/本地来源，每个 IP 每天最多 120 次写查询；供应商密钥仅保存在 Worker Secrets。
@@ -138,10 +137,16 @@ npm run validate
 
 ### Netlify（正式方案）
 
-1. 将 GitHub 仓库导入 Netlify，生产分支选择 `main`。
-2. Netlify 自动读取 `netlify.toml`，执行 `npm run build:netlify`，发布 `dist/` 并部署 `/api/*` Function。
-3. 在 Netlify 项目环境变量中添加 Amadeus 密钥；不要写入仓库。
-4. 触发一次生产部署，并检查 `/api/health`、真实搜索、住宿匹配和购买跳转。
+> 实际部署方式为**本地 zip 部署**（站点未连接 GitHub 持续部署，push 到 main 不会自动上线）。
+
+1. 在 Netlify 后台 **Site configuration → Environment variables** 配置密钥（免费计划无法通过 API 写入环境变量）。
+2. 一键部署（读取 `NETLIFY_TOKEN` 环境变量，可在 Netlify 后台 User settings → Applications 生成）：
+
+   ```bash
+   NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs
+   ```
+
+3. 验收：`curl https://gina-lowfare-passport.netlify.app/api/health` 应显示 `travelpayouts.configured: true`；再检查真实搜索、住宿匹配和购买跳转。
 
 ### Cloudflare Worker 和 D1（备用）
 
@@ -188,3 +193,9 @@ npm run validate
 - 增加 Amadeus 实时酒店价格适配、购买平台跳转、来源白名单和每日查询限额。
 - 增加 Netlify Function、同域 API、每 IP 限流、安全响应头和 GitHub 持续部署配置。
 - 发布到 `gina-lowfare-passport.netlify.app`，保留 GitHub Pages 作为静态演示。
+
+### 0.2.1 · 2026-09-02
+
+- 修正文档漂移：实际部署方式为本地 zip 部署（站点未连 GitHub 持续部署），部署章节已重写。
+- 记录 Amadeus 自服务关停（2026-07-17）的影响：Travelpayouts 成为唯一生效的真实数据源；降级提示文案与数据源状态说明已同步更新。
+- 新增 `scripts/deploy-netlify.mjs` 一键部署脚本；部署细节与待办见 `TODO.md`。
