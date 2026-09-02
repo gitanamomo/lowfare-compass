@@ -8,9 +8,9 @@
   - 原因：旧站（Gitana 团队，gina-lowfare-passport）额度用超且不按自然月重置；用户提供了 gitanamo 团队（另一账号）的新 token
   - 新站：**https://lowfare-compass.netlify.app**（siteId `9dbe994e-a7d8-4703-a6a9-cecdbcfc3d4d`）
   - 教训：裸 zip API 不注册 Function（`/api/*` 全 404），部署脚本已改为 netlify-cli 本地打包（0.2.2）
-- [ ] **在 Netlify UI 给新站配环境变量**：https://app.netlify.com/projects/lowfare-compass/configuration/env
-  - Key：`TRAVELPAYOUTS_TOKEN`，Value：`7d59…c88`（免费计划 API 写不了 env，需手动）
-  - 配好后跑 `NETLIFY_TOKEN=nfp_xxx node scripts/deploy-netlify.mjs` 重部署并验收 `travelpayouts.configured: true`
+- [x] **在 Netlify UI 给新站配环境变量**（2026-09-02 用户完成，重部署后验收通过）
+  - `TRAVELPAYOUTS_TOKEN` 已生效：`/api/health` → `travelpayouts.configured: true`
+  - 真实搜索冒烟通过：flexible 模式 SZX 出发返回 16 条真实航线（demo:false），如 CKG ¥1322 / KUL ¥1386 / HKT ¥1432
 - [x] **Amadeus 数据源决策**（2026-09-02 定案：**方案 A**，仅用 Travelpayouts）
   - 已落地：worker.js 降级文案与 providerStatus 说明已更新；Amadeus/Booking 适配保留备用
   - 复价行为：无 Amadeus 时 `/api/refresh` 返回 indicative + 提示去供应商页面确认（原有逻辑，无需改动）
@@ -18,7 +18,7 @@
 ## P1
 
 - [ ] 若未来选方案 B（如 Duffel）：在 `worker.js` 新增供应商适配（参照现有适配结构，返回 `normalizeOffer()` 字段后加入 `searchAll()`），同步改测试
-- [ ] 重新部署后整站验收：三种搜索模式、住宿匹配、复价跳转、Safari + iPhone 尺寸
+- [ ] 整站人工验收（P1 剩余）：浏览器实际走一遍三种搜索模式、住宿匹配、复价跳转、Safari + iPhone 尺寸（API 层冒烟已通过）
 
 ## P2（文档与仓库卫生）
 
@@ -30,7 +30,8 @@
 
 ## P3（可选 / 收尾）
 
-- [ ] 验收完成后提醒用户**撤销本次用的 Netlify token**（nfp_…9de6，gitanamo 团队）；旧 token nfp_…6011（Gitana 团队）也建议撤销
+- [ ] 提醒用户**撤销本次用的 Netlify token**（nfp_…9de6，gitanamo 团队）；旧 token nfp_…6011（Gitana 团队）也建议撤销
+- [ ] 处理旧站 gina-lowfare-passport（Gitana 团队）：删除或保留作占位（其 env 里的 TRAVELPAYOUTS_TOKEN 已无用）
 - [ ] Booking.com Demand API 合作申请（当前未申请）
 - [ ] D1 价格历史功能在 Netlify 路径下无数据库支撑，属空转（Cloudflare 备用方案才有），考虑在 UI 隐藏或说明
 
